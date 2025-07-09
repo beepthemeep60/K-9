@@ -1,7 +1,7 @@
 const { SlashCommandBuilder } = require("discord.js");
 const fs = require("fs");
 
-const MOD_ROLE_ID = "1035684617086320640"; // Mod role ID
+const MOD_ROLE_ID = "1018290989246468116"; // Mod role ID
 
 module.exports = {
     data: new SlashCommandBuilder()
