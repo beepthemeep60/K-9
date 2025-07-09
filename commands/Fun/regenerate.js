@@ -10,7 +10,7 @@ module.exports = {
   async execute(interaction) {
     const member = interaction.member.user.username;
     let canNickname = true;
-    const randomNumber = Math.floor(Math.random() * 19) + 1;
+    const randomNumber = Math.floor(Math.random() * 20) + 1;
     if (
       !interaction.channel
         .permissionsFor(interaction.client.user)
@@ -383,6 +383,26 @@ module.exports = {
         }
       }
     } else if (randomNumber === 19) {
+      //15 to 16
+      await interaction.editReply(
+        "https://media.giphy.com/media/gExs8MSVNYAzsjLhmc/giphy.gif"
+      );
+      if (canNickname === true) {
+        const nicknameWithUsername = `The 16th Doctor (${interaction.member.user.username})`;
+
+        if (nicknameWithUsername.length <= 32) {
+          interaction.member
+            .setNickname(nicknameWithUsername)
+            .catch((error) => {
+              console.error("Error setting nickname with username:", error);
+            });
+        } else {
+          interaction.member.setNickname("The 16th Doctor").catch((error) => {
+            console.error("Error setting nickname without username:", error);
+          });
+        }
+      }
+    } else if (randomNumber === 20) {
       //shrek
       await interaction.editReply(
         "https://cdn.discordapp.com/attachments/1233859483956936757/1233859828376666183/shrek.gif?ex=662ea103&is=662d4f83&hm=f573c74f6bc57d3d511e6f8f8c651b7707d7ba09ef1c1159580b73cb74d4fc39&"

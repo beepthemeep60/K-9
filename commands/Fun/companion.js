@@ -69,6 +69,10 @@ const companionData = [
     name: "Ruby Sunday",
     gif: "https://cdn.discordapp.com/attachments/1233862314558623765/1233863083177410631/ruby-sunday.gif?ex=662ea40b&is=662d528b&hm=96dc3d3ce5377e87b5f724cba5ca70ae001f0d5786d688daa4ad5ecc67d2cd1f&",
   },
+  {
+    name: "Belinda Chandra",
+    gif: "https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExMzZwbDAzcWJhcWVkN2M0Y3JxdzV6eDY0bXZtcXdmNXZ4bXRrbXJucyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/h4BDqeqFq7PqLe88bK/giphy.gif",
+  }
 ];
 
 module.exports = {
@@ -78,7 +82,7 @@ module.exports = {
   async execute(interaction) {
     await interaction.deferReply();
 
-    const randomNumber = Math.floor(Math.random() * 17);
+    const randomNumber = Math.floor(Math.random() * 18);
 
     await interaction.editReply(companionData[randomNumber].gif);
 

@@ -1,8 +1,16 @@
-K-9 Version 9.9.9.9.5 notes
+K-9 Version 9.9.9.9.6 notes
 ---------------------
 Changes:
-    Renamed /funny to /raven
-    Added series 15 countdown
-    Added new command for competition
-    Made torchwood images have a 1/50 chance
-    ADDED PETS!!!
+    Added s2 episodes to /episode
+    Removed /isolate
+    Removed series 15 countdown
+    Added warn check command
+    Added remove warn command
+    Added unban command
+    Replaced /doctor09 with /truthnuke, does the same thing but with a different emoji
+    Added new torchwood image
+    K-9 will now flex that he is better if grok is mentioned
+    Added 15-16 to /regenerate
+    Added Belinda to /companion
+    Fixed dalek emoji in pet command
+    (hopefully) Fixed pets having insane level numbers (current high levelled pets will keep it, keep it alive for an ultra rare pet or smth ig)

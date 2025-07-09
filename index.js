@@ -171,16 +171,16 @@ client.on("ready", async () => {
   setInterval(() => {
     const now = new Date();
 
-    // Send the message at midnight
-    if (now.getHours() === 0 && now.getMinutes() === 0) {
-      try {
-        const channel = client.channels.cache.get("1018199943774732410");
-        channel.send(`Series 15 releases <t:1744441200:R>!`);
-      } catch {
-        const channel = client.channels.cache.get("915568009815416845");
-        channel.send(`Series 15 releases <t:1744441200:R>!`);
-      }
-    }
+    // // Send the message at midnight
+    // if (now.getHours() === 0 && now.getMinutes() === 0) {
+    //   try {
+    //     const channel = client.channels.cache.get("1018199943774732410");
+    //     channel.send(`Series 15 releases <t:1744441200:R>!`);
+    //   } catch {
+    //     const channel = client.channels.cache.get("915568009815416845");
+    //     channel.send(`Series 15 releases <t:1744441200:R>!`);
+    //   }
+    // }
     // scheduled restart
     if (now.getHours() === 6 && now.getMinutes() === 0) {
       const { restart } = require("./restart");
@@ -190,16 +190,16 @@ client.on("ready", async () => {
         console.log("There was an issue while trying to restart");
       }
     }
-    // Send the message at midday
-    if (now.getHours() === 12 && now.getMinutes() === 0) {
-      try {
-        const channel = client.channels.cache.get("1018199943774732410");
-        channel.send(`Series 15 releases <t:1744441200:R>!`);
-      } catch {
-        const channel = client.channels.cache.get("915568009815416845");
-        channel.send(`Series 15 releases <t:1744441200:R>!`);
-      }
-    }
+    // // Send the message at midday
+    // if (now.getHours() === 12 && now.getMinutes() === 0) {
+    //   try {
+    //     const channel = client.channels.cache.get("1018199943774732410");
+    //     channel.send(`Series 15 releases <t:1744441200:R>!`);
+    //   } catch {
+    //     const channel = client.channels.cache.get("915568009815416845");
+    //     channel.send(`Series 15 releases <t:1744441200:R>!`);
+    //   }
+    // }
     // scheduled restart
     if (now.getHours() === 18 && now.getMinutes() === 0) {
       const { restart } = require("./restart");
@@ -379,6 +379,11 @@ client.on("messageCreate", async function (message) {
     
   }}
  }
+   if (
+    message.content.toLowerCase().includes("grok")
+  ) {
+    await message.reply("K-9 better");
+  }
   // Torchwood images (with 1/50 chance)
   const randomChance = Math.random() * 50;
   if (
@@ -386,7 +391,8 @@ client.on("messageCreate", async function (message) {
     message.content.toLowerCase().includes("ianto") ||
     message.content.toLowerCase().includes("gwen") ||
     message.content.toLowerCase().includes("owen") ||
-    message.content.toLowerCase().includes("tosh")
+    message.content.toLowerCase().includes("tosh") ||
+    message.content.toLowerCase().includes("rhys")
   ) {
     if (randomChance < 1) {
       // Send the appropriate image
@@ -438,6 +444,16 @@ client.on("messageCreate", async function (message) {
         } catch {
           message.channel.send(
             "https://cdn.discordapp.com/attachments/915568009815416845/1315388342451441664/bosh.png"
+          );
+        }
+      } else if (message.content.toLowerCase().includes("rhys")) {
+        try {
+          await message.reply(
+            "https://cdn.discordapp.com/attachments/1035684381005729902/1379558609670639657/torchwood-rhys-season-3-2262397848.jpg"
+          );
+        } catch {
+          message.channel.send(
+            "https://cdn.discordapp.com/attachments/1035684381005729902/1379558609670639657/torchwood-rhys-season-3-2262397848.jpg"
           );
         }
       }

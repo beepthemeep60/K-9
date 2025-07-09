@@ -2,6 +2,17 @@ const { SlashCommandBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, T
 const { response } = require("express");
 const fs = require("node:fs");
 
+function savePetsFile(originalContents, userID, newLine) {
+    const updatedLines = originalContents
+        .split("\n")
+        .filter(line => line.trim() !== "" && !line.startsWith(userID + ",")); // Remove blanks and user duplicates
+
+    updatedLines.push(newLine); // Add updated line
+    const cleanedContents = updatedLines.join("\n") + "\n"; // Join and add final newline
+    fs.writeFileSync("./pets.txt", cleanedContents, "utf-8");
+}
+
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("pet")
@@ -36,7 +47,7 @@ module.exports = {
 
             // Create third set of buttons
             const thirdButtons = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId("dalek").setEmoji("<:DalekStare:679965388548603907>").setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId("dalek").setEmoji("<:Stare:1018283310700560405>").setStyle(ButtonStyle.Secondary),
                 new ButtonBuilder().setCustomId("truth").setEmoji("<:True:1253870607398080535>").setStyle(ButtonStyle.Secondary),
                 new ButtonBuilder().setCustomId("nine").setEmoji("<:Doctor09:1179920908928962611>").setStyle(ButtonStyle.Secondary),
                 new ButtonBuilder().setCustomId("ianto").setEmoji("<:Ianto:1226674508656672909>").setStyle(ButtonStyle.Secondary),
@@ -98,7 +109,7 @@ module.exports = {
                     petEmoji = "🫃";
                     break;
                 case "dalek":
-                    petEmoji = "<:DalekStare:679965388548603907>";
+                    petEmoji = "<:Stare:1018283310700560405>";
                     break;
                 case "truth":
                     petEmoji = "<:True:1253870607398080535>";
@@ -138,9 +149,8 @@ module.exports = {
 
             // Store the user's pet type in the file
             let currentDate = new Date();
-            const newLine = `${userID},,${petEmoji},100,${currentDate},${currentDate},0,100\n`; // Added separate timestamps for feeding and playing
-            const updatedContents = `${fileContents}${newLine}`;
-            fs.writeFileSync("./pets.txt", updatedContents, "utf-8");
+            const newLine = `${userID},,${petEmoji},100,${currentDate},${currentDate},0,100`; // Added separate timestamps for feeding and playing
+            savePetsFile(fileContents, userID, newLine);
 
             // Inform the user to run the command again to name their pet
             await interaction.followUp({
@@ -203,8 +213,7 @@ module.exports = {
                             });
                             let currentDate = new Date();
                             const newLine = `${userID},${petName},${petEmoji},100,${currentDate},${currentDate},0,100\n`; // Added 100 for initial happiness
-                            const updatedContents = fileContents.replace(line, newLine);
-                            fs.writeFileSync("./pets.txt", updatedContents, "utf-8");
+                            savePetsFile(fileContents, userID, newLine);
                         }
                     } else {
                         console.error("Pet name is undefined");
@@ -323,19 +332,18 @@ module.exports = {
                             let newHunger = hunger + feedIncrease;
                             let newXp = Number(xp); // convert xp to a number
                             if (newHunger > 100) {
-                                newXp += (newHunger - 100);  // overflow converted to XP
-                                newHunger = 100;
+                                let xpGain = newHunger - 100;
                                 if (hasDoubleXpRole) {
-                                    console.log("Double XP role detected");
-                                    newXp *= 2;
+                                    xpGain *= 2;
                                 }
+                                newXp += xpGain;
+                                newHunger = 100;
                             }
 
                             // Update the pet record with the new values and update the last-feed timestamp
                             const newFeedDate = now.toString(); // using local time format
                             const newLine = `${user},${pet},${petEmoji},${newHunger},${newFeedDate},${playDate},${newXp},${happiness}`; // Include hunger
-                            const updatedContents = fileContents.replace(line, newLine);
-                            fs.writeFileSync("./pets.txt", updatedContents, "utf-8");
+                            savePetsFile(fileContents, userID, newLine);
 
                             await action.reply(`You fed your pet! ${pet} is now at ${newHunger}% hunger. ${petEmoji}`);
 
@@ -377,18 +385,19 @@ module.exports = {
                             let newHappiness = happiness + playIncrease;
                             let newXp = Number(xp); // convert xp to a number
                             if (newHappiness > 100) {
-                                newXp += (newHappiness - 100);  // overflow converted to XP
-                                newHappiness = 100;
+                                let xpGain = newHappiness - 100;
                                 if (hasDoubleXpRole) {
-                                    newXp *= 2;
+                                    xpGain *= 2;
                                 }
+                                newXp += xpGain;
+                                newHappiness = 100;
                             }
-                        
+
+                                                    
                             // Update the pet record with the new values and update the last-play timestamp
                             const newPlayDate = now.toString(); // using local time format
                             const newLine = `${user},${pet},${petEmoji},${hunger},${feedDate},${newPlayDate},${newXp},${newHappiness}`; // Include happiness
-                            const updatedContents = fileContents.replace(line, newLine);
-                            fs.writeFileSync("./pets.txt", updatedContents, "utf-8");
+                            savePetsFile(fileContents, userID, newLine);
                         
                             await action.reply(`You played with your pet! ${pet} is now at ${newHappiness}% happiness. ${petEmoji}`);
                         

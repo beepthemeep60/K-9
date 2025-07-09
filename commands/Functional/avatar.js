@@ -6,7 +6,7 @@ const cooldowns = new Collection();
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("avatar")
-    .setDescription("Replies with the bot's avatar!"),
+    .setDescription("Replies with the bot's original avatar!"),
   async execute(interaction) {
     await interaction.deferReply();
     //cooldown
