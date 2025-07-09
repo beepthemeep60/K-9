@@ -449,11 +449,11 @@ client.on("messageCreate", async function (message) {
       } else if (message.content.toLowerCase().includes("rhys")) {
         try {
           await message.reply(
-            "https://cdn.discordapp.com/attachments/1035684381005729902/1379558609670639657/torchwood-rhys-season-3-2262397848.jpg"
+            "https://cdn.discordapp.com/attachments/915568009815416845/1392555500851171348/reeses.png"
           );
         } catch {
           message.channel.send(
-            "https://cdn.discordapp.com/attachments/1035684381005729902/1379558609670639657/torchwood-rhys-season-3-2262397848.jpg"
+            "https://cdn.discordapp.com/attachments/915568009815416845/1392555500851171348/reeses.png"
           );
         }
       }

@@ -1,4 +1,4 @@
-K-9 Version 9.9.9.9.7 notes
+K-9 Version 9.9.9.9.8 notes
 ---------------------
 Changes:
-    Fixed a glitch where new mod commands did not function correctly
+    Fixed broken Torchwood image
