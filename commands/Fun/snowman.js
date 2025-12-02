@@ -143,7 +143,7 @@ module.exports = {
         }
       }
     } else {
-      const [user, snowman, emoji, height, date] = line.split(",");
+      let [user, snowman, emoji, height, date] = line.split(",");
       //calculate how many emojis tall the snowman is
       const emojis = parseInt(height, 10);
       const emojiLines = Array.from({ length: emojis }, () => `:white_circle:`);
@@ -173,7 +173,7 @@ module.exports = {
           console.log(randomNumber);
           if (randomNumber === 69) {
             interaction.channel.send(
-              `[RARE EVENT] <@${user}>'s snowman, ${snowman}, has come to life :D\n${snowman} grew by 5 extra snow!`
+              `[RARE EVENT]\n<@${user}>'s snowman, ${snowman}, has come to life :D\n${snowman} grew by 5 extra snow!`
             );
             interaction.channel.send(
               "https://cdn.discordapp.com/attachments/1271501941725204520/1271502001708077086/FyAHw-.gif?ex=66b79204&is=66b64084&hm=c07e491ab9b8f13cab7dae069cfff73985e7bc4a1989f47a5b5c05cd15c6742a&"
@@ -181,10 +181,32 @@ module.exports = {
             newHeight = newHeight + 5;
           } else if (randomNumber === 66) {
             interaction.channel.send(
-              `<@${user}>'s snowman, ${snowman}, was possessed by the Great Intelligence!\n${snowman} was defeated, causing 5 snow to melt away :(`
+              `[RARE EVENT]\n<@${user}>'s snowman, ${snowman}, was possessed by the Great Intelligence!\n${snowman} was defeated, causing 5 snow to melt away :(`
             );
             interaction.channel.send("https://cdn.discordapp.com/attachments/1271501941725204520/1271502123451945111/vnD2Xj.gif?ex=66b79221&is=66b640a1&hm=16d83c7610524d30e8d59f0fee9ac8047da45754f1afc0fb8c8dd77c279f0041&");
             newHeight = newHeight - 5;
+          } else if (randomNumber === 67) {
+            interaction.channel.send(
+              `[RARE EVENT]\n${snowman}, stole some of <@${user}>'s life force!\n${snowman} grew by 10 extra snow but <@${user}> was muted for 10 minutes!`
+            );
+            interaction.channel.send("https://cdn.discordapp.com/attachments/1271501941725204520/1445389078542684170/snowman.gif?ex=69302afa&is=692ed97a&hm=e72913271ace58836261239eab95a353ce00fc9f2eb4cec2c16f707884f76771&");
+            newHeight = newHeight + 10;
+            const member = await interaction.guild.members.fetch(user);
+            member.timeout(10 * 60 * 1000, "Snowman stole life force");
+          } else if (randomNumber === 42) {
+            interaction.channel.send(
+              `[RARE EVENT]\nThe last person to use this command threw a snowball at ${snowman}!\n${snowman} lost 10 snow!`
+              );
+              interaction.channel.send("https://cdn.discordapp.com/attachments/1271501941725204520/1445393015391916153/freezing-snowman.gif?ex=69302ea4&is=692edd24&hm=658643074245ade9bcb02a5584f5c57faf20da133f1732bf3223846e43b6f892&");
+              newHeight = newHeight - 10;
+          } else if (randomNumber === 1) {
+            interaction.channel.send(
+              `[RARE EVENT]\n<@${user}>'s snowman, ${snowman}, has vanity issues and wants a new head!\n${snowman}'s head has been changed to a random unique head!`
+              );
+              const heads = ["alien", "clown", "jack_o_lantern", "cat", "full_moon_with_face"];
+            const randomHead = heads[Math.floor(Math.random() * heads.length)];
+            interaction.channel.send("https://cdn.discordapp.com/attachments/1271501941725204520/1445395069963337889/snow-snowman.gif?ex=6930308e&is=692edf0e&hm=43cfd88274a5ced793de694c0bdf231c7e365b5d648d41ecd3f7a8f99f0c0528&");
+            emoji = randomHead;
           }
           const newLine = `${user},${snowman},${emoji},${newHeight},${currentDate}`;
           const updatedContents = fileContents.replace(line, newLine);
