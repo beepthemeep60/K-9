@@ -1,4 +1,5 @@
-K-9 Version 9.9.9.9.9 notes
+K-9 Version 9.9.9.9.9.1 notes
 ---------------------
 Changes:
-    Added new snowman events
+    Added The War Between to /episode
+    Added framework for university societies

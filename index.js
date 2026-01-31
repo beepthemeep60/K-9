@@ -523,31 +523,38 @@ for (const folder of commandFolders) {
 }
 //tries to run the command
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
 
-  const command = interaction.client.commands.get(interaction.commandName);
+  // slash commands
+  if (interaction.isChatInputCommand()) {
+    const command = interaction.client.commands.get(interaction.commandName);
+    if (!command) return;
 
-  if (!command) {
-    console.error(`No command matching ${interaction.commandName} was found.`);
-    return;
+    try {
+      return await command.execute(interaction);
+    } catch (error) {
+      console.error(error);
+      if (interaction.replied || interaction.deferred) {
+        return interaction.followUp({
+          content: "There was an error executing this command.",
+          ephemeral: true
+        });
+      } else {
+        return interaction.reply({
+          content: "There was an error executing this command.",
+          ephemeral: true
+        });
+      }
+    }
   }
 
-  try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error(error);
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({
-        content:
-          "There was an error while executing this command! If this keeps happening, please report the issue on the [support page](https://k-9.vercel.app/Support.html)",
-        ephemeral: true,
-      });
-    } else {
-      await interaction.reply({
-        content:
-          "There was an error while executing this command! If this keeps happening, please report the issue on the [support page](https://k-9.vercel.app/Support.html)",
-        ephemeral: true,
-      });
+  // modals
+  for (const command of interaction.client.commands.values()) {
+    if (typeof command.interactionCreate === "function") {
+      try {
+        await command.interactionCreate(interaction);
+      } catch (err) {
+        console.error(err);
+      }
     }
   }
 });
