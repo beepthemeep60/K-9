@@ -1,5 +1,5 @@
-K-9 Version 9.9.9.9.9.1 notes
+K-9 Version 9.9.9.9.9.2 notes
 ---------------------
 Changes:
-    Added The War Between to /episode
-    Added framework for university societies
+    Removed /vortex
+    Added a "nothing" option to the societies drop down

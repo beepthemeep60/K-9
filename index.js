@@ -142,7 +142,7 @@ client.on("ready", async () => {
   client.user.setPresence({
     activities: [
       {
-        name: "the TARDIS",
+        name: "Never knowing the answer when it's fucking important",
         type: ActivityType.Watching,
       },
     ],

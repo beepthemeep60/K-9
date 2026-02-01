@@ -10,9 +10,10 @@ const {
 } = require('discord.js');
 
 const ROLE_OPTIONS = [
-      { label: 'Uni One', value: '1467193870428143851' },
-      { label: 'Uni Two', value: '1467194099424821554' },
-      { label: 'Uni Three', value: '1467194125744082996' }
+      // { label: 'Uni One', value: '1467193870428143851' },
+      // { label: 'Uni Two', value: '1467194099424821554' },
+      // { label: 'Uni Three', value: '1467194125744082996' }
+      { label: 'Nothing yet! Click the button below to request your uni!', value: 'none' }
 ];
 
 const ROLE_IDS = ROLE_OPTIONS.map(r => r.value);
