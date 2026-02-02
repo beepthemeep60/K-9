@@ -31,7 +31,7 @@ module.exports = {
     const gifPath = path.join(__dirname, '../../assets/bart.gif');
 
     try {
-      // 1️⃣ Download audio
+      // Download audio
       await ytdlp(url, {
         extractAudio: true,
         audioFormat: 'mp3',
@@ -39,7 +39,7 @@ module.exports = {
         noPlaylist: true
       });
 
-      // 2️⃣ Combine audio + gif
+      // Combine audio + gif
       await new Promise((resolve, reject) => {
         ffmpeg()
           .input(gifPath)
@@ -56,7 +56,7 @@ module.exports = {
           .on('error', reject);
       });
 
-      // 3️⃣ Reply with video
+      // Reply with video
       await interaction.editReply({
         files: [outputPath]
       });
