@@ -1,5 +1,4 @@
-K-9 Version 9.9.9.9.9.2 notes
+K-9 Version 9.9.9.9.9.3 notes
 ---------------------
 Changes:
-    Removed /vortex
-    Added a "nothing" option to the societies drop down
+    Added /bart
