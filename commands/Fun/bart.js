@@ -7,6 +7,9 @@ const fs = require('fs');
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
+let lastUsed = 0;
+const COOLDOWN = 60 * 60 * 1000; // 60 minutes
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('bart')
@@ -19,11 +22,22 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    const now = Date.now();
+
+    if (now - lastUsed < COOLDOWN) {
+      const remaining = Math.ceil((COOLDOWN - (now - lastUsed)) / 60000);
+      return interaction.reply({
+        content: `You cannot rush Bartness.... Wait ${remaining} more minutes`,
+      });
+    }
+
+    lastUsed = now;
+
     await interaction.deferReply();
 
     const url = interaction.options.getString('url');
 
-    const tempDir = path.join(__dirname, '../temp');
+    const tempDir = path.join(__dirname, '../../temp');
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 
     const audioPath = path.join(tempDir, 'audio.mp3');
@@ -61,6 +75,9 @@ module.exports = {
         files: [outputPath]
       });
 
+      // cleanup
+      fs.unlink(audioPath, () => {});
+      fs.unlink(outputPath, () => {});
     } catch (err) {
       console.error(err);
       await interaction.editReply('❌ Something went wrong processing that link.');

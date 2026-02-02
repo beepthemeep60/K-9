@@ -1,4 +1,4 @@
-K-9 Version 9.9.9.9.9.3 notes
+K-9 Version 9.9.9.9.9.4 notes
 ---------------------
 Changes:
-    Added /bart
+    Made /bart actually work
