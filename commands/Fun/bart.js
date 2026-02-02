@@ -37,7 +37,6 @@ module.exports = {
         audioFormat: 'mp3',
         output: audioPath,
         noPlaylist: true,
-        ytDlpPath: 'python3.11 -m yt_dlp'
       });
 
       // Combine audio + gif
