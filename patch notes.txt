@@ -1,4 +1,16 @@
-K-9 Version 9.9.9.9.9.4 notes
+K-9 Version 9.9.9.9.9.5[test] notes
 ---------------------
 Changes:
-    Made /bart actually work
+    - Removed bart command (it was too much for K-9's poor brain to handle)
+    - Removed the societies stuff
+    - Changed the status message slightly bc it was misquoted
+
+More technical changes for logging purposes:
+    - Removed the following from git repo:
+        1. punch.txt
+        2. roulette.txt
+        3. snowmen.txt
+        4. warns.txt
+        5. pets.txt
+        6. random prettier file
+        7. super old replit files (sure hope these aren't load bearing for some reason)

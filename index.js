@@ -14,6 +14,7 @@ const readline = require("node:readline/promises");
 const { stdin: input, stdout: output } = require("node:process");
 const fs = require("node:fs");
 const path = require("node:path");
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 
 dotenv.config();
 //sets prefix and context
@@ -142,7 +143,7 @@ client.on("ready", async () => {
   client.user.setPresence({
     activities: [
       {
-        name: "Never knowing the answer when it's fucking important",
+        name: "Never fucking knowing the answer when it's important",
         type: ActivityType.Watching,
       },
     ],
@@ -190,6 +191,16 @@ client.on("ready", async () => {
         console.log("There was an issue while trying to restart");
       }
     }
+
+  //     try {
+  //   client.channels.cache
+  //     .get("1018199943774732410")
+  //     .send(`System restarting. All primary drives functioning.`);
+  // } catch (error) {
+  //   client.channels.cache
+  //     .get("915568009815416845")
+  //     .send(`System restarting. All primary drives functioning.`);
+  // }
     // // Send the message at midday
     // if (now.getHours() === 12 && now.getMinutes() === 0) {
     //   try {
@@ -304,11 +315,12 @@ client.on("messageCreate", async function (message) {
                 "1312574581118079077", // curator
                 "1104044177215471677", // wall
                 "1018200127598497893", // booster
-                "1163825738051498105",
-                "1163825260194447381",
-                "1163825574603653200", // ^^ halloween event roles
                 "1345969083870347295", // puzzle solver
-                "1146535148884603060"  // testing server test role
+                "1146535148884603060", // testing server test role 
+                // halloween event:
+                "1163825738051498105", // perception filter
+                "1163825260194447381", // chameleon circuit
+                "1163825574603653200"  // slightly better written
             ];
             const userRoles = message.member.roles.cache.map(role => role.id);
             const hasDoubleXpRole = doubleXpRoles.some(role => userRoles.includes(role));
@@ -384,6 +396,94 @@ client.on("messageCreate", async function (message) {
   ) {
     await message.reply("K-9 better");
   }
+  // change nickname following "i'm"
+  const lowerContent = message.content.toLowerCase();
+  let match = null;
+  const activeTimers = new Map();
+  // check if message starts with "im " or "i'm"
+    if (lowerContent.startsWith('im ') || lowerContent.startsWith("i'm ")) {
+        match = lowerContent.match(/^(im|i'm)\s+(.*)/);
+    } 
+  // check if message starts with a ping (<@ID>) followed by "im " or "i'm"
+    else if (lowerContent.match(/^<@!?\d+>\s+/)) {
+        match = lowerContent.match(/^<@!?\d+>\s+(im|i'm)\s+(.*)/);
+    } 
+  // check if message starts with "@dead chat" (plain text or Role Ping <@&ID>) followed by "im " or "i'm"
+    else if (lowerContent.startsWith('@dead chat') || lowerContent.match(/^<@&\d+>\s+/)) {
+        // check text "@dead chat"
+        match = lowerContent.match(/^@dead\s+chat\s+(im|i'm)\s+(.*)/);
+      }
+    // check if message starts with "K-9" followed by "im " or "i'm"
+    else if (lowerContent.startsWith('k-9') || lowerContent.match(/^<@&\d+>\s+/)) {
+        // check text "K-9"
+        match = lowerContent.match(/^k-9\s+(im|i'm)\s+(.*)/);
+    }
+  // if no match, check if user pinged dead chat role ID
+    if (!match) {
+        match = lowerContent.match(/^<@&1018313736647352380>\s+(im|i'm)\s+(.*)/);
+      }
+
+    // If a valid "im" pattern was found, update the nickname
+    if (match) {
+        const nameChance = Math.random() * 5;
+            if (nameChance < 1) {
+        let newNickname = match[match.length - 1].trim();
+
+        if (newNickname.length > 32) {
+            newNickname = newNickname.substring(0, 32);
+        }
+
+        const userId = message.author.id;
+        const member = message.member;
+
+        try {
+            let originalName;
+
+            // If the user already has a timer active
+            if (activeTimers.has(userId)) {
+                // Clear the existing countdown timer
+                clearTimeout(activeTimers.get(userId).timeoutId);
+                
+                // Keep the original name
+                originalName = activeTimers.get(userId).oldNickname;
+            } else {
+                // Save current nickname
+                originalName = member.nickname;
+            }
+
+            // Change to new nickname
+            await member.setNickname(newNickname);
+            await message.reply(`Hi ${newNickname}! I'm K-9! User identification protocols updated.`);
+
+            // Start a new countdown
+            const timeoutId = setTimeout(async () => {
+                try {
+                    const session = activeTimers.get(userId);
+                    if (session) {
+                        // Revert back to the original name
+                        await member.setNickname(session.oldNickname);
+                        activeTimers.delete(userId); // Clear them from memory
+                    }
+                } catch (err) {
+                    console.error(`Failed to revert nickname for user ${userId}:`, err);
+                    activeTimers.delete(userId);
+                }
+            }, 180000); // 180000 milliseconds = 3 minutes
+
+            // Save the original name and the new timeout ID to the map
+            activeTimers.set(userId, {
+                oldNickname: originalName,
+                timeoutId: timeoutId
+            });
+
+        } catch (error) {
+            console.error('Failed to update nickname:', error);
+            // Clean up memory only if they didn't have a previous timer
+            if (!activeTimers.has(userId)) {
+                activeTimers.delete(userId);
+            }
+        }
+    }}
   // Torchwood images (with 1/50 chance)
   const randomChance = Math.random() * 50;
   if (
