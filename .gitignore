@@ -7,3 +7,5 @@ warns.txt
 pets.txt
 package.json
 package-lock.json
+tradingCards/data/users
+tradingCards/exampleData

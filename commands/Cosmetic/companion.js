@@ -1,4 +1,5 @@
 const { SlashCommandBuilder } = require("discord.js");
+const { setTemporaryNickname } = require("../../nicknameManager");
 
 const companionData = [
   {
@@ -72,40 +73,55 @@ const companionData = [
   {
     name: "Belinda Chandra",
     gif: "https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExMzZwbDAzcWJhcWVkN2M0Y3JxdzV6eDY0bXZtcXdmNXZ4bXRrbXJucyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/h4BDqeqFq7PqLe88bK/giphy.gif",
-  }
+  },
 ];
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("companion")
     .setDescription("Become a random companion"),
+
   async execute(interaction) {
     await interaction.deferReply();
 
-    const randomNumber = Math.floor(Math.random() * 18);
+    const randomNumber = Math.floor(Math.random() * companionData.length);
 
-    await interaction.editReply(companionData[randomNumber].gif);
+    const companion = companionData[randomNumber];
 
-    // Check whether the bot has permission to change members' nicknames
-    // and whether the bot is above the member in the hierarchy
+    await interaction.editReply(companion.gif);
+
+    // Check whether the bot can change nicknames
     if (
       interaction.channel
         .permissionsFor(interaction.client.user)
         .has("ManageNicknames") &&
       interaction.member.manageable
     ) {
-      let nicknameWithUsername = `${companionData[randomNumber].name} (${interaction.member.user.username})`;
+      try {
+        let nicknameWithUsername = `${companion.name} (${interaction.user.username})`;
 
-      if (nicknameWithUsername.length <= 32) {
-        interaction.member.setNickname(nicknameWithUsername).catch((error) => {
-          console.error("Error setting nickname with username:", error);
-        });
-      } else {
-        interaction.member
-          .setNickname(companionData[randomNumber].name)
-          .catch((error) => {
-            console.error("Error setting nickname without username:", error);
+        const nickname =
+          nicknameWithUsername.length <= 32
+            ? nicknameWithUsername
+            : companion.name;
+
+        const originalName = await setTemporaryNickname(
+          interaction.member,
+          nickname,
+        );
+        if (originalName !== null) {
+          await interaction.followUp({
+            content: `Your nickname will revert back to "${originalName}" in 3 minutes!`,
+            flags: ["Ephemeral"],
           });
+        } else {
+          await interaction.followUp({
+            content: `Your nickname will revert back to "${interaction.user.displayName}" in 3 minutes!`,
+            flags: ["Ephemeral"],
+          });
+        }
+      } catch (error) {
+        console.error("Failed to update nickname:", error);
       }
     }
   },

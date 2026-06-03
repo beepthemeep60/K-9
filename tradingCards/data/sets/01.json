@@ -1,0 +1,20 @@
+{
+  "set_id": "01",
+  "set_name": "First Edition",
+  "cards": {
+    "01001": {
+      "name": "Beep the Meep",
+      "rarity": "rare",
+      "editions": ["base", "foil", "gold", "rainbow"],
+      "description": "Behold! The best card in the game!! ...Not actually :(",
+      "art_url": "https://media.discordapp.net/attachments/915568009815416845/1511579100127428618/335c30069d97fc9df9faac8b01d9962b.png?ex=6a20f73d&is=6a1fa5bd&hm=7a588d54f3cf1cbece0b83494261ee678208a676aad3f72545133a3325ac1174&=&format=webp&quality=lossless"
+    },
+    "01002": {
+      "name": "K-9",
+      "rarity": "epic",
+      "editions": ["base", "foil", "gold", "rainbow"],
+      "description": "The one and only slur sog",
+      "art_url": "https://media.discordapp.net/attachments/1318795114289692762/1318795145541582942/Untitled15_20240809104219.png?ex=6a205470&is=6a1f02f0&hm=5f0ed3d92ab56128e461f581243969e85985d33678dc7a210cc2c1eeb983ed7a&=&format=webp&quality=lossless"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "christmas": {
+    "display_name": "christmas",
+    "type": "event",
+    "color": "#ff3333",
+    "weight": 5
+  },
+  "halloween": {
+    "display_name": "halloween",
+    "type": "event",
+    "color": "#ff6600",
+    "weight": 5
+  }
+}

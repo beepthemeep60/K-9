@@ -8,13 +8,15 @@ const {
   EmbedBuilder,
   ActivityType,
   BaseSelectMenuBuilder,
+  AttachmentBuilder,
 } = require("discord.js");
 const { Configuration, OpenAIApi } = require("openai");
 const readline = require("node:readline/promises");
 const { stdin: input, stdout: output } = require("node:process");
 const fs = require("node:fs");
 const path = require("node:path");
-const { createCanvas, loadImage } = require('@napi-rs/canvas');
+const { createCanvas, loadImage } = require("@napi-rs/canvas");
+const { setTemporaryNickname } = require("./nicknameManager");
 
 dotenv.config();
 //sets prefix and context
@@ -50,7 +52,7 @@ function checkUserIdInPetsFile(userId) {
   const filePath = path.join(__dirname, "pets.txt");
   const fileContents = fs.readFileSync(filePath, "utf-8");
   const lines = fileContents.split("\n");
-  const userLine = lines.find(line => line.startsWith(userId + ","));
+  const userLine = lines.find((line) => line.startsWith(userId + ","));
   return userLine !== undefined;
 }
 
@@ -88,7 +90,7 @@ function safeReply(message, reply) {
     if (res.data.results[0].flagged) {
       safeReply(
         message,
-        "My response was moderated. (This is an error, not an AI response)"
+        "My response was moderated. (This is an error, not an AI response)",
       );
       try {
         client.channels.cache
@@ -127,7 +129,8 @@ async function getGptResponse(prompt, model) {
     if (!reply.includes("@everyone" || "@here" || "@&")) {
       return reply;
     } else {
-      const newReply = "This message could mass ping users, and has been blocked. (This is an error, not an AI response)";
+      const newReply =
+        "This message could mass ping users, and has been blocked. (This is an error, not an AI response)";
       return newReply;
     }
   } else {
@@ -158,7 +161,7 @@ client.on("ready", async () => {
       .send(`System restarting. All primary drives functioning.`);
   }
 
-  //remove members from role
+  //remove members from cybermen role
   try {
     const guild = client.guilds.cache.get("1018199943330140170");
     const members = await guild.members.fetch();
@@ -169,58 +172,104 @@ client.on("ready", async () => {
     });
   } catch (error) {}
 
-  setInterval(() => {
+  const channelArray = [
+    "1018199943774732410", // earth
+    "1018300866224205974", // parallel-earth
+    "1018260976765771786", // the-satan-pit
+    "1018652709672464384", // hedgewicks-world
+    "1024072607559065650", // dont-blink
+    "1060625912695115837", // vote-saxon
+    "1060626581405581393", // bowser-history
+    "1018261660416348170", // mega-gay-zone
+    "1020752932519542784", // siluria
+  ];
+
+  async function sendPredictionMessage() {
+    const randomChannelId =
+      channelArray[Math.floor(Math.random() * channelArray.length)];
+
+    const channel = client.channels.cache.get(randomChannelId);
+
+    if (!channel) return;
+
+    try {
+      const messages = await channel.messages.fetch({ limit: 1 });
+      const lastMessage = messages.first();
+
+      if (!lastMessage) return;
+
+      if (Math.random() < 0.02) {
+        const secondsSinceEpoch = Math.floor(Date.now() / 1000);
+        const randomTime = Math.floor(Math.random() * 2500000);
+        const predictedTime = secondsSinceEpoch + randomTime;
+
+        await channel.send(
+          `I think <t:${predictedTime}:D> will be an interesting day for <@${lastMessage.author.id}>.`,
+        );
+      }
+    } catch (error) {
+      console.error("Failed to fetch messages:", error);
+    }
+  }
+
+  setInterval(async () => {
     const now = new Date();
+    let day = now.getDay();
 
-    // // Send the message at midnight
-    // if (now.getHours() === 0 && now.getMinutes() === 0) {
-    //   try {
-    //     const channel = client.channels.cache.get("1018199943774732410");
-    //     channel.send(`Series 15 releases <t:1744441200:R>!`);
-    //   } catch {
-    //     const channel = client.channels.cache.get("915568009815416845");
-    //     channel.send(`Series 15 releases <t:1744441200:R>!`);
-    //   }
-    // }
-    // scheduled restart
-    if (now.getHours() === 6 && now.getMinutes() === 0) {
-      const { restart } = require("./restart");
-      try {
-        restart();
-      } catch (error) {
-        console.log("There was an issue while trying to restart");
+    if (
+      (now.getHours() === 12 && now.getMinutes() === 0) ||
+      (now.getHours() === 0 && now.getMinutes() === 0)
+    ) {
+      await sendPredictionMessage();
+    }
+    if (day === 0) {
+      // sunday
+      if (now.getHours() === 23 && now.getMinutes() === 59) {
+        try {
+          const dumpChannel = await client.channels.fetch(
+            "1511503399705776229",
+          );
+
+          // check channel exists and is text channel
+          if (dumpChannel && dumpChannel.isTextBased()) {
+            const threadName = now.toLocaleDateString("en-GB");
+            // create thread
+            const thread = await dumpChannel.threads.create({
+              name: threadName,
+              autoArchiveDuration: 1440,
+              reason: "Weekly file dump",
+            });
+
+            // send file in thread
+            await thread.send({
+              content: "Weekly file dump:",
+              files: [
+                new AttachmentBuilder("punch.txt"),
+                new AttachmentBuilder("roulette.txt"),
+                new AttachmentBuilder("pets.txt"),
+                new AttachmentBuilder("warns.txt"),
+                new AttachmentBuilder("snowmen.txt"),
+              ],
+            });
+          }
+        } catch (error) {
+          console.error("Error creating thread in channel:", error);
+        }
       }
     }
+  }, 60 * 1000); // check every minute
 
-  //     try {
-  //   client.channels.cache
-  //     .get("1018199943774732410")
-  //     .send(`System restarting. All primary drives functioning.`);
-  // } catch (error) {
-  //   client.channels.cache
-  //     .get("915568009815416845")
-  //     .send(`System restarting. All primary drives functioning.`);
-  // }
-    // // Send the message at midday
-    // if (now.getHours() === 12 && now.getMinutes() === 0) {
-    //   try {
-    //     const channel = client.channels.cache.get("1018199943774732410");
-    //     channel.send(`Series 15 releases <t:1744441200:R>!`);
-    //   } catch {
-    //     const channel = client.channels.cache.get("915568009815416845");
-    //     channel.send(`Series 15 releases <t:1744441200:R>!`);
-    //   }
-    // }
-    // scheduled restart
-    if (now.getHours() === 18 && now.getMinutes() === 0) {
-      const { restart } = require("./restart");
-      try {
-        restart();
-      } catch (error) {
-        console.log("There was an issue while trying to restart");
-      }
-    }
-  }, 60 * 1000); // Check every minute
+  // // scheduled restart
+  // if (now.getHours() === 18 && now.getMinutes() === 0) {
+  //   restart();}
+
+  // // scheduled restart
+  // if (now.getHours() === 18 && now.getMinutes() === 0) {
+  //   const { restart } = require("./restart");
+  //   try {
+  //     restart();
+  //   } catch (error) {
+  //     console.log("There was an issue while trying to restart");}}
 });
 
 //crash prevention
@@ -257,7 +306,7 @@ client.on("guildMemberAdd", async (member) => {
         name: "Introduce yourself!",
         value: "<#1018442634005598269>",
         inline: true,
-      }
+      },
     )
     .addFields({
       name: "Join the conversation!",
@@ -278,7 +327,7 @@ client.on("guildMemberAdd", async (member) => {
       client.channels.cache
         .get("1018199943330140172")
         .send(
-          `<:Affirmative:1019680728759419011> Welcome to Bigger on the Inside <@${member.id}>!`
+          `<:Affirmative:1019680728759419011> Welcome to Bigger on the Inside <@${member.id}>!`,
         );
     }
   } catch (error) {
@@ -304,186 +353,176 @@ client.on("messageCreate", async function (message) {
   if (message.content.toLowerCase().includes("dw")) {
     await message.react(":dw:1086049130075394068");
   }
- // Random pet events
- if (message.channel.id == "1018199943774732410") {
- const petEvent = Math.random() * 500;
- if (petEvent < 1) {
-              // Check for double XP roles
-              const doubleXpRoles = [
-                "1018290989246468116", // mods
-                "1271816605654978623", // gambling
-                "1312574581118079077", // curator
-                "1104044177215471677", // wall
-                "1018200127598497893", // booster
-                "1345969083870347295", // puzzle solver
-                "1146535148884603060", // testing server test role 
-                // halloween event:
-                "1163825738051498105", // perception filter
-                "1163825260194447381", // chameleon circuit
-                "1163825574603653200"  // slightly better written
-            ];
-            const userRoles = message.member.roles.cache.map(role => role.id);
-            const hasDoubleXpRole = doubleXpRoles.some(role => userRoles.includes(role));
-  const userId = message.author.id;
-  const userExists = checkUserIdInPetsFile(userId);
-  if (userExists) {
-    const filePath = './pets.txt';
-    const fileStream = fs.createReadStream(filePath, 'utf-8');
-    const rl = readline.createInterface({
-      input: fileStream,
-      crlfDelay: Infinity, // Handle both '\n' and '\r\n' line endings
-    });
-    const updatedLines = [];
-    let updatedXp = null; // Initialize updatedXp to null
-    
-    rl.on('line', (line) => {
-        // Check if the line starts with the userID
-        if (line.startsWith(userId + ',')) {
-            const [user, pet, petEmoji, hunger, feedDate, playDate, xp, happiness] = line.split(',');
-    
+  // Random pet events
+  if (message.channel.id == "1018199943774732410") {
+    const petEvent = Math.random() * 500;
+    if (petEvent < 1) {
+      // Check for double XP roles
+      const doubleXpRoles = [
+        "1018290989246468116", // mods
+        "1271816605654978623", // gambling
+        "1312574581118079077", // curator
+        "1104044177215471677", // wall
+        "1018200127598497893", // booster
+        "1345969083870347295", // puzzle solver
+        "1146535148884603060", // testing server test role
+        // halloween event:
+        "1163825738051498105", // perception filter
+        "1163825260194447381", // chameleon circuit
+        "1163825574603653200", // slightly better written
+      ];
+      const userRoles = message.member.roles.cache.map((role) => role.id);
+      const hasDoubleXpRole = doubleXpRoles.some((role) =>
+        userRoles.includes(role),
+      );
+      const userId = message.author.id;
+      const userExists = checkUserIdInPetsFile(userId);
+      if (userExists) {
+        const filePath = "./pets.txt";
+        const fileStream = fs.createReadStream(filePath, "utf-8");
+        const rl = readline.createInterface({
+          input: fileStream,
+          crlfDelay: Infinity, // Handle both '\n' and '\r\n' line endings
+        });
+        const updatedLines = [];
+        let updatedXp = null; // Initialize updatedXp to null
+
+        rl.on("line", (line) => {
+          // Check if the line starts with the userID
+          if (line.startsWith(userId + ",")) {
+            const [
+              user,
+              pet,
+              petEmoji,
+              hunger,
+              feedDate,
+              playDate,
+              xp,
+              happiness,
+            ] = line.split(",");
+
             // Get current date
             const currentDate = new Date();
-    
+
             // React with emoji
             message.react(petEmoji);
-    
+
             // Declare variables outside the if-else block
             let updatedHunger;
             let updatedHappiness;
-    
+
             if (hasDoubleXpRole) {
-                updatedHunger = 100;
-                updatedHappiness = 100;
-                updatedXp = Number(xp) + 200;
+              updatedHunger = 100;
+              updatedHappiness = 100;
+              updatedXp = Number(xp) + 200;
             } else {
-                updatedHunger = 100;
-                updatedHappiness = 100;
-                updatedXp = Number(xp) + 100;
+              updatedHunger = 100;
+              updatedHappiness = 100;
+              updatedXp = Number(xp) + 100;
             }
-    
+
             // Reconstruct the line with updated values
             const updatedLine = `${user},${pet},${petEmoji},${updatedHunger},${currentDate},${currentDate},${updatedXp},${updatedHappiness}`;
             updatedLines.push(updatedLine);
-    
-        } else {
+          } else {
             // If the line doesn't match the userID, keep it unchanged
             updatedLines.push(line);
-        }
-    });
-    
-    // Move `rl.on('close', ...)` OUTSIDE of `rl.on('line', ...)`
-    rl.on('close', () => {
-        // Join all lines into a single string with newline characters
-        const updatedContent = updatedLines.join('\n');
-        // Write the updated content back to the file
-        fs.writeFileSync(filePath, updatedContent, 'utf-8');
-        // Only send a message if `updatedXp` was set
-        if (updatedXp !== null) {
-          if (hasDoubleXpRole) {
-                message.channel.send(`<@${userId}> Your pet has come to spend time with you while you chat!\n` +
-                `Hunger set to 100%. Happiness set to 100%. +200xp gained.`)
-        } else {
-                message.channel.send(`<@${userId}> Your pet has come to spend time with you while you chat!\n` +
-                `Hunger set to 100%. Happiness set to 100%. +100xp gained.`)
-        }
-        }
-    });
-    
-  }}
- }
-   if (
-    message.content.toLowerCase().includes("grok")
-  ) {
+          }
+        });
+
+        // Move `rl.on('close', ...)` OUTSIDE of `rl.on('line', ...)`
+        rl.on("close", () => {
+          // Join all lines into a single string with newline characters
+          const updatedContent = updatedLines.join("\n");
+          // Write the updated content back to the file
+          fs.writeFileSync(filePath, updatedContent, "utf-8");
+          // Only send a message if `updatedXp` was set
+          if (updatedXp !== null) {
+            if (hasDoubleXpRole) {
+              message.channel.send(
+                `<@${userId}> Your pet has come to spend time with you while you chat!\n` +
+                  `Hunger set to 100%. Happiness set to 100%. +200xp gained.`,
+              );
+            } else {
+              message.channel.send(
+                `<@${userId}> Your pet has come to spend time with you while you chat!\n` +
+                  `Hunger set to 100%. Happiness set to 100%. +100xp gained.`,
+              );
+            }
+          }
+        });
+      }
+    }
+  }
+  if (message.content.toLowerCase().includes("grok")) {
     await message.reply("K-9 better");
   }
   // change nickname following "i'm"
   const lowerContent = message.content.toLowerCase();
   let match = null;
-  const activeTimers = new Map();
+
   // check if message starts with "im " or "i'm"
-    if (lowerContent.startsWith('im ') || lowerContent.startsWith("i'm ")) {
-        match = lowerContent.match(/^(im|i'm)\s+(.*)/);
-    } 
+  if (lowerContent.startsWith("im ") || lowerContent.startsWith("i'm ")) {
+    match = lowerContent.match(/^(im|i'm)\s+(.*)/);
+  }
   // check if message starts with a ping (<@ID>) followed by "im " or "i'm"
-    else if (lowerContent.match(/^<@!?\d+>\s+/)) {
-        match = lowerContent.match(/^<@!?\d+>\s+(im|i'm)\s+(.*)/);
-    } 
+  else if (lowerContent.match(/^<@!?\d+>\s+/)) {
+    match = lowerContent.match(/^<@!?\d+>\s+(im|i'm)\s+(.*)/);
+  }
   // check if message starts with "@dead chat" (plain text or Role Ping <@&ID>) followed by "im " or "i'm"
-    else if (lowerContent.startsWith('@dead chat') || lowerContent.match(/^<@&\d+>\s+/)) {
-        // check text "@dead chat"
-        match = lowerContent.match(/^@dead\s+chat\s+(im|i'm)\s+(.*)/);
-      }
-    // check if message starts with "K-9" followed by "im " or "i'm"
-    else if (lowerContent.startsWith('k-9') || lowerContent.match(/^<@&\d+>\s+/)) {
-        // check text "K-9"
-        match = lowerContent.match(/^k-9\s+(im|i'm)\s+(.*)/);
-    }
+  else if (
+    lowerContent.startsWith("@dead chat") ||
+    lowerContent.match(/^<@&\d+>\s+/)
+  ) {
+    match = lowerContent.match(/^@dead\s+chat\s+(im|i'm)\s+(.*)/);
+  }
+  // check if message starts with "K-9" followed by "im " or "i'm"
+  else if (
+    lowerContent.startsWith("k-9") ||
+    lowerContent.match(/^<@&\d+>\s+/)
+  ) {
+    match = lowerContent.match(/^k-9\s+(im|i'm)\s+(.*)/);
+  }
+
   // if no match, check if user pinged dead chat role ID
-    if (!match) {
-        match = lowerContent.match(/^<@&1018313736647352380>\s+(im|i'm)\s+(.*)/);
+  if (!match) {
+    match = lowerContent.match(/^<@&1018313736647352380>\s+(im|i'm)\s+(.*)/);
+  }
+
+  // If a valid "im" pattern was found, update the nickname
+  if (match) {
+    const nameChance = Math.random() * 5;
+
+    if (nameChance < 1) {
+      let newNickname = match[match.length - 1].trim();
+
+      if (newNickname.length > 32) {
+        newNickname = newNickname.substring(0, 32);
       }
 
-    // If a valid "im" pattern was found, update the nickname
-    if (match) {
-        const nameChance = Math.random() * 5;
-            if (nameChance < 1) {
-        let newNickname = match[match.length - 1].trim();
+      const member = message.member;
 
-        if (newNickname.length > 32) {
-            newNickname = newNickname.substring(0, 32);
-        }
-
-        const userId = message.author.id;
-        const member = message.member;
-
+      if (
+        member &&
+        message.guild.members.me.permissions.has("ManageNicknames") &&
+        member.manageable
+      ) {
         try {
-            let originalName;
+          await setTemporaryNickname(
+            member,
+            newNickname,
+            180000, // 3 minutes
+          );
 
-            // If the user already has a timer active
-            if (activeTimers.has(userId)) {
-                // Clear the existing countdown timer
-                clearTimeout(activeTimers.get(userId).timeoutId);
-                
-                // Keep the original name
-                originalName = activeTimers.get(userId).oldNickname;
-            } else {
-                // Save current nickname
-                originalName = member.nickname;
-            }
-
-            // Change to new nickname
-            await member.setNickname(newNickname);
-            await message.reply(`Hi ${newNickname}! I'm K-9! User identification protocols updated.`);
-
-            // Start a new countdown
-            const timeoutId = setTimeout(async () => {
-                try {
-                    const session = activeTimers.get(userId);
-                    if (session) {
-                        // Revert back to the original name
-                        await member.setNickname(session.oldNickname);
-                        activeTimers.delete(userId); // Clear them from memory
-                    }
-                } catch (err) {
-                    console.error(`Failed to revert nickname for user ${userId}:`, err);
-                    activeTimers.delete(userId);
-                }
-            }, 180000); // 180000 milliseconds = 3 minutes
-
-            // Save the original name and the new timeout ID to the map
-            activeTimers.set(userId, {
-                oldNickname: originalName,
-                timeoutId: timeoutId
-            });
-
+          await message.reply(
+            `Hi ${newNickname}! I'm K-9! User identification protocols updated.`,
+          );
         } catch (error) {
-            console.error('Failed to update nickname:', error);
-            // Clean up memory only if they didn't have a previous timer
-            if (!activeTimers.has(userId)) {
-                activeTimers.delete(userId);
-            }
+          console.error("Failed to update nickname:", error);
         }
-    }}
+      }
+    }
+  }
   // Torchwood images (with 1/50 chance)
   const randomChance = Math.random() * 50;
   if (
@@ -499,61 +538,61 @@ client.on("messageCreate", async function (message) {
       if (message.content.toLowerCase().includes("jack")) {
         try {
           await message.reply(
-            "https://cdn.discordapp.com/attachments/915568009815416845/1315388340559679578/jork.png"
+            "https://cdn.discordapp.com/attachments/915568009815416845/1315388340559679578/jork.png",
           );
         } catch {
           message.channel.send(
-            "https://cdn.discordapp.com/attachments/915568009815416845/1315388340559679578/jork.png"
+            "https://cdn.discordapp.com/attachments/915568009815416845/1315388340559679578/jork.png",
           );
         }
       } else if (message.content.toLowerCase().includes("ianto")) {
         try {
           await message.reply(
-            "https://cdn.discordapp.com/attachments/915568009815416845/1315388341071646813/fanta.png"
+            "https://cdn.discordapp.com/attachments/915568009815416845/1315388341071646813/fanta.png",
           );
         } catch {
           message.channel.send(
-            "https://cdn.discordapp.com/attachments/915568009815416845/1315388341071646813/fanta.png"
+            "https://cdn.discordapp.com/attachments/915568009815416845/1315388341071646813/fanta.png",
           );
         }
       } else if (message.content.toLowerCase().includes("gwen")) {
         try {
           await message.reply(
-            "https://cdn.discordapp.com/attachments/915568009815416845/1315388341830811678/hen.png"
+            "https://cdn.discordapp.com/attachments/915568009815416845/1315388341830811678/hen.png",
           );
         } catch {
           message.channel.send(
-            "https://cdn.discordapp.com/attachments/915568009815416845/1315388341830811678/hen.png"
+            "https://cdn.discordapp.com/attachments/915568009815416845/1315388341830811678/hen.png",
           );
         }
       } else if (message.content.toLowerCase().includes("owen")) {
         try {
           await message.reply(
-            "https://cdn.discordapp.com/attachments/915568009815416845/1315388342866804736/going.png"
+            "https://cdn.discordapp.com/attachments/915568009815416845/1315388342866804736/going.png",
           );
         } catch {
           message.channel.send(
-            "https://cdn.discordapp.com/attachments/915568009815416845/1315388342866804736/going.png"
+            "https://cdn.discordapp.com/attachments/915568009815416845/1315388342866804736/going.png",
           );
         }
       } else if (message.content.toLowerCase().includes("tosh")) {
         try {
           await message.reply(
-            "https://cdn.discordapp.com/attachments/915568009815416845/1315388342451441664/bosh.png"
+            "https://cdn.discordapp.com/attachments/915568009815416845/1315388342451441664/bosh.png",
           );
         } catch {
           message.channel.send(
-            "https://cdn.discordapp.com/attachments/915568009815416845/1315388342451441664/bosh.png"
+            "https://cdn.discordapp.com/attachments/915568009815416845/1315388342451441664/bosh.png",
           );
         }
       } else if (message.content.toLowerCase().includes("rhys")) {
         try {
           await message.reply(
-            "https://cdn.discordapp.com/attachments/915568009815416845/1392555500851171348/reeses.png"
+            "https://cdn.discordapp.com/attachments/915568009815416845/1392555500851171348/reeses.png",
           );
         } catch {
           message.channel.send(
-            "https://cdn.discordapp.com/attachments/915568009815416845/1392555500851171348/reeses.png"
+            "https://cdn.discordapp.com/attachments/915568009815416845/1392555500851171348/reeses.png",
           );
         }
       }
@@ -578,14 +617,14 @@ client.on("messageCreate", async function (message) {
       if (res.data.results[0].flagged) {
         safeReply(
           message,
-          "Your message has been moderated. Please refrain from trying to generate the following content: hate, self-harm, sexual, violence. (This is an error, not an AI response)"
+          "Your message has been moderated. Please refrain from trying to generate the following content: hate, self-harm, sexual, violence. (This is an error, not an AI response)",
         );
       }
       //if nothing is flagged, set the model and send the message to the AI
       else {
         const gptResponse = await getGptResponse(
           message.content.substring(3),
-          "ft:babbage-002:personal::8euAZ98S"
+          "ft:babbage-002:personal::8euAZ98S",
         );
         safeReply(message, gptResponse);
       }
@@ -616,13 +655,25 @@ for (const folder of commandFolders) {
       client.commands.set(command.data.name, command);
     } else {
       console.log(
-        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
+        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`,
       );
     }
   }
 }
 //tries to run the command
 client.on(Events.InteractionCreate, async (interaction) => {
+  // autocomplete menus
+  if (interaction.isAutocomplete()) {
+    const command = interaction.client.commands.get(interaction.commandName);
+    if (!command || typeof command.autocomplete !== "function") return;
+
+    try {
+      return await command.autocomplete(interaction);
+    } catch (error) {
+      console.error(error);
+      return;
+    }
+  }
 
   // slash commands
   if (interaction.isChatInputCommand()) {
@@ -636,12 +687,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (interaction.replied || interaction.deferred) {
         return interaction.followUp({
           content: "There was an error executing this command.",
-          ephemeral: true
+          ephemeral: true,
         });
       } else {
         return interaction.reply({
           content: "There was an error executing this command.",
-          ephemeral: true
+          ephemeral: true,
         });
       }
     }

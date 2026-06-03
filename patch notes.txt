@@ -1,11 +1,30 @@
-K-9 Version 9.9.9.9.9.5[test] notes
+K-9 Version 10[test_build] notes
 ---------------------
-Changes:
+New features:
+    - Added trading cards! With multiple new commands:
+        1. /cards open
+        2. /cards collection
+        3. /cards inspect
+        4. /cards card 
+        5. /cards packs
+    - Saying "I'm" at the start of your message now has a 1/5 chance to change your name (reverts after 3 minutes)
+    - 1/50 chance of K-9 giving a random user a prediction, twice a day
+
+Updates to older features:
+    - /companion and /regenerate now change your name back to normal after 3 minutes 
+    - /avatar can now get the avatar of any user
+    - /wheretostart has been rewritten and improved!
+    - Small update to K-9's website
+    - User reporting page is now mentioned in /help so it's less forgotten about
+
+Less interesting changes:
+    - Changed the status message slightly bc it was misquoted
     - Removed bart command (it was too much for K-9's poor brain to handle)
     - Removed the societies stuff
-    - Changed the status message slightly bc it was misquoted
+    - !!restart has been removed, if the bot is bugging please ask a mod to restart it for you
 
 More technical changes for logging purposes:
+    - K-9 now backs up scoreboards to a thread weekly
     - Removed the following from git repo:
         1. punch.txt
         2. roulette.txt
@@ -14,4 +33,3 @@ More technical changes for logging purposes:
         5. pets.txt
         6. random prettier file
         7. super old replit files (sure hope these aren't load bearing for some reason)
-        adding this line bc i wanna test smth

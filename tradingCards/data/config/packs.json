@@ -1,0 +1,6 @@
+{
+  "standard_pack": {
+    "cards_per_pack": 5,
+    "guaranteed_min_rarity": "uncommon"
+  }
+}
