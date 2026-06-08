@@ -285,7 +285,7 @@ module.exports = {
           content:
             `**How to unlock more boosts:**\n\n` +
             `**🎖️ Server booster** - Boost the server for a +50% xp boost!\n\n` +
-            `**🥊 /punch completed** - Use the /punch command 3000 times to unlock a permanent +25% xp boost!` +
+            `**🥊 /punch completed** - Use the /punch command 3000 times to unlock a permanent +25% xp boost!\n\n` +
             `**🎰 /roulette streak** - Play the roulette minigame against other players! Each point is a +2.5% xp boost!\n\n` +
             `**📅 Daily login** - Send at least 1 message in the server to add +1% to this each day! You will lose 1% for every day you miss.\n\n` +
             `-# Note: You can only earn XP once per minute`,
