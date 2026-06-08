@@ -216,10 +216,18 @@ function applyEditionEffect(ctx, edition, width, height) {
 async function renderCardImage(card, pullIndex, user, set) {
   if (!card.art_url) return null;
 
-  const ck = cacheKey("card", card.id, card.edition, user?.id || "", set?.set_name || "");
+  const ck = cacheKey(
+    "card",
+    card.id,
+    card.edition,
+    user?.id || "",
+    set?.set_name || "",
+  );
   const cached = cacheGet(ck);
   if (cached) {
-    return new AttachmentBuilder(cached, { name: `card-${card.id}-${pullIndex}.png` });
+    return new AttachmentBuilder(cached, {
+      name: `card-${card.id}-${pullIndex}.png`,
+    });
   }
 
   await yieldLoop();
@@ -286,7 +294,9 @@ function renderEditionIcon(card, pullIndex, setId) {
   const ek = cacheKey("edition", card.id, card.edition, setId || "");
   const cached = cacheGet(ek);
   if (cached) {
-    return new AttachmentBuilder(cached, { name: `edition-${card.id}-${pullIndex}.png` });
+    return new AttachmentBuilder(cached, {
+      name: `edition-${card.id}-${pullIndex}.png`,
+    });
   }
   const size = 160;
   const canvas = createCanvas(size, size);
@@ -1192,7 +1202,9 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
 
   if (showRequestTip) {
     user.request_tip_shown = true;
-    try { saveUser(user); } catch {}
+    try {
+      saveUser(user);
+    } catch {}
     interaction
       .followUp({
         content:
@@ -3028,7 +3040,9 @@ module.exports = {
           const emptyEmbed = new EmbedBuilder()
             .setColor(0x2b2d31)
             .setTitle("📦 Open a Pack")
-            .setDescription("You don't have any packs at the moment.\n");
+            .setDescription(
+              "You don't have any packs at the moment.\nGet more through `/battlepass`!",
+            );
           await interaction.editReply({ embeds: [emptyEmbed], components: [] });
           return;
         }
