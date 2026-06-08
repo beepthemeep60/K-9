@@ -1,27 +1,38 @@
-K-9 Version 10[test_build] notes
+K-9 Version 10 notes
 ---------------------
 New features:
+    - Added battle pass feature! Run `/battlepass` to get started
     - Added trading cards! With multiple new commands:
-        1. /cards open
-        2. /cards collection
-        3. /cards inspect
-        4. /cards card 
-        5. /cards packs
-    - Saying "I'm" at the start of your message now has a 1/5 chance to change your name (reverts after 3 minutes)
+        1. `/cards collection`
+        2. `/cards inspect`
+        3. `/cards inventory`
+        4. `/cards open`
+        5. `/cards profile`
+        6. `/cards set`
+        7. `/cards trade`
+        8. `/cards help`
+        9. `/cards stats`
+        10. `/cards request`
+    - Saying "I'm" at the start of your message now has a 1/50 chance to change your name (reverts after 3 minutes)
     - 1/50 chance of K-9 giving a random user a prediction, twice a day
 
 Updates to older features:
     - /companion and /regenerate now change your name back to normal after 3 minutes 
+    - /punch messages are now ephemeral
     - /avatar can now get the avatar of any user
     - /wheretostart has been rewritten and improved!
     - Small update to K-9's website
     - User reporting page is now mentioned in /help so it's less forgotten about
+    - Roulette should no longer break
 
 Less interesting changes:
+    - !!restart has been removed, if the bot is bugging please ask a mod to restart it for you
     - Changed the status message slightly bc it was misquoted
     - Removed bart command (it was too much for K-9's poor brain to handle)
     - Removed the societies stuff
-    - !!restart has been removed, if the bot is bugging please ask a mod to restart it for you
+    - /reload can now be used by mods
+    - added /unmute for mods
+    - renamed /removewarn to /forgive
 
 More technical changes for logging purposes:
     - K-9 now backs up scoreboards to a thread weekly
@@ -33,3 +44,4 @@ More technical changes for logging purposes:
         5. pets.txt
         6. random prettier file
         7. super old replit files (sure hope these aren't load bearing for some reason)
+    - admin only command. /source has been moved inside this

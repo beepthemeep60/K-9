@@ -8,4 +8,4 @@ pets.txt
 package.json
 package-lock.json
 tradingCards/data/users
-tradingCards/exampleData
+battlePass/data/users

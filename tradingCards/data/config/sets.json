@@ -1,5 +1,65 @@
 {
   "01": {
-    "name": "First Edition"
+    "name": "First Edition",
+    "emoji": "🥇",
+    "pack_cover_url": "https://k-9.vercel.app/assets/public/pack_covers/01.png",
+    "titles": [
+      {
+        "name": "Pioneer",
+        "stat": "unique_cards",
+        "threshold": 25,
+        "description": "Own at least 25 unique First Edition cards",
+        "rewards": [{ "type": "premium_pack", "amount": 1 }]
+      },
+      {
+        "name": "OG",
+        "stat": "unique_cards",
+        "threshold": 50,
+        "description": "Own at least 50 unique First Edition cards",
+        "rewards": [{ "type": "premium_pack", "amount": 3 }]
+      },
+      {
+        "name": "First Edition Master",
+        "stat": "unique_cards",
+        "threshold": 100,
+        "description": "Collect every unique card in First Edition set",
+        "rewards": [{ "type": "rainbow_pack", "amount": 1 }]
+      },
+      {
+        "name": "Foil Fanatic",
+        "stat": "foil_cards",
+        "threshold": 25,
+        "description": "Own 25 Foil First Edition cards",
+        "rewards": [{ "type": "standard_pack", "amount": 5 }]
+      },
+      {
+        "name": "Gold Miner",
+        "stat": "gold_cards",
+        "threshold": 10,
+        "description": "Own 10 Gold First Edition cards",
+        "rewards": [{ "type": "standard_pack", "amount": 5 }]
+      },
+      {
+        "name": "Rainbow Observer",
+        "stat": "rainbow_cards",
+        "threshold": 1,
+        "description": "Obtain your first Rainbow First Edition card",
+        "rewards": [{ "type": "feature_pack", "amount": 1 }]
+      },
+      {
+        "name": "Rainbow Chaser",
+        "stat": "rainbow_cards",
+        "threshold": 10,
+        "description": "Own 10 Rainbow First Edition edition cards",
+        "rewards": [{ "type": "rainbow_pack", "amount": 5 }]
+      },
+      {
+        "name": "First Edition Hoarder",
+        "stat": "total_cards",
+        "threshold": 500,
+        "description": "Accumulate a total of 500 First Edition cards",
+        "rewards": [{ "type": "premium_pack", "amount": 5 }]
+      }
+    ]
   }
 }

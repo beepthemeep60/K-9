@@ -1,32 +1,22 @@
 {
-  "base": {
-    "display_name": "Base",
-    "type": "standard",
-    "color": "#ffffff",
+  "basic": {
+    "display_name": "Basic",
     "weight": 70
   },
   "foil": {
     "display_name": "Foil",
-    "type": "standard",
-    "color": "#7d7d7d",
-    "weight": 16
+    "weight": 20
   },
   "gold": {
     "display_name": "Gold",
-    "type": "standard",
-    "color": "#f2c627",
-    "weight": 10
+    "weight": 9
   },
   "unpleasant": {
     "display_name": "Unpleasant",
-    "type": "standard",
-    "color": "#e20fc6",
-    "weight": 3
+    "weight": 5
   },
   "rainbow": {
     "display_name": "Rainbow",
-    "type": "standard",
-    "color": "#90e87c",
     "weight": 1
   }
 }

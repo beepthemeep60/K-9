@@ -1,14 +1,10 @@
 {
   "christmas": {
-    "display_name": "christmas",
-    "type": "event",
-    "color": "#ff3333",
-    "weight": 5
+    "display_name": "Christmas",
+    "weight": 15
   },
   "halloween": {
-    "display_name": "halloween",
-    "type": "event",
-    "color": "#ff6600",
-    "weight": 5
+    "display_name": "Halloween",
+    "weight": 15
   }
 }

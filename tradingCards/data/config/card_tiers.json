@@ -1,6 +1,0 @@
-{
-  "basic": { "weight": 70 },
-  "uncommon": { "weight": 20 },
-  "rare": { "weight": 9 },
-  "epic": { "weight": 1 }
-}

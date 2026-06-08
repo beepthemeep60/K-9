@@ -241,16 +241,31 @@ client.on("ready", async () => {
             });
 
             // send file in thread
+            const { execSync } = require("child_process");
+            const tmpDir = require("path").join(__dirname, "tmp_dump");
+            if (!require("fs").existsSync(tmpDir)) require("fs").mkdirSync(tmpDir);
+
+            execSync(`zip -j "${tmpDir}/tradingCards_users.zip" tradingCards/data/users/*`);
+            execSync(`zip -j "${tmpDir}/battlePass_users.zip" battlePass/data/users/*`);
+
+            const files = [
+              new AttachmentBuilder("punch.txt"),
+              new AttachmentBuilder("roulette.txt"),
+              new AttachmentBuilder("pets.txt"),
+              new AttachmentBuilder("warns.txt"),
+              new AttachmentBuilder("snowmen.txt"),
+              new AttachmentBuilder(path.join(tmpDir, "tradingCards_users.zip")),
+              new AttachmentBuilder(path.join(tmpDir, "battlePass_users.zip")),
+            ];
+
             await thread.send({
               content: "Weekly file dump:",
-              files: [
-                new AttachmentBuilder("punch.txt"),
-                new AttachmentBuilder("roulette.txt"),
-                new AttachmentBuilder("pets.txt"),
-                new AttachmentBuilder("warns.txt"),
-                new AttachmentBuilder("snowmen.txt"),
-              ],
+              files,
             });
+
+            try {
+              require("fs").rmSync(tmpDir, { recursive: true, force: true });
+            } catch {}
           }
         } catch (error) {
           console.error("Error creating thread in channel:", error);
@@ -340,15 +355,12 @@ client.on("guildMemberAdd", async (member) => {
 //checks if the message is from a bot or if the mesage doesn't contain the 'K-9' prefix
 client.on("messageCreate", async function (message) {
   if (message.content == "!!restart") {
-    const { restart } = require("./restart");
-
-    await message.reply("Forcing restart");
-
-    try {
-      restart();
-    } catch (error) {
-      await message.channel.send("There was an issue while trying to restart");
-    }
+    await message.reply("Incorrect command. Please try '!restart'");
+  }
+  if (message.content == "!restart") {
+    await message.reply(
+      "Lmao got you, this feature has been removed, please ask a mod to run /reload",
+    );
   }
   if (message.content.toLowerCase().includes("dw")) {
     await message.react(":dw:1086049130075394068");
@@ -454,6 +466,121 @@ client.on("messageCreate", async function (message) {
       }
     }
   }
+  // Battle Pass XP tracking
+  if (!message.author.bot) {
+    try {
+      const {
+        getCurrentSeason,
+        getLatestSeasonId,
+        loadUser: loadBpUser,
+        getSeasonData,
+        saveUser: saveBpUser,
+        getLevelFromXp,
+        getLevelsToProcess,
+      } = require("./battlePass/services/battlePassService");
+      const {
+        addPack: addBpPack,
+      } = require("./tradingCards/services/userService");
+      const season = getCurrentSeason();
+      const seasonId = getLatestSeasonId();
+      if (season && seasonId) {
+        let bpUser = loadBpUser(message.author.id);
+        if (bpUser && bpUser.seasons?.[seasonId]) {
+          const seasonData = getSeasonData(bpUser, seasonId);
+
+          const today = new Date().toISOString().split("T")[0];
+          let dailyStreak = seasonData.daily_streak || 0;
+          if (seasonData.last_message_date !== today) {
+            if (seasonData.last_message_date) {
+              const last = new Date(seasonData.last_message_date);
+              const diff = Math.floor((Date.now() - last.getTime()) / 86400000);
+              const missed = diff - 1;
+              dailyStreak = Math.max(0, dailyStreak - missed) + 1;
+            } else {
+              dailyStreak += 1;
+            }
+            seasonData.last_message_date = today;
+            seasonData.daily_streak = dailyStreak;
+          }
+
+          const now = Date.now();
+          if (
+            !seasonData.last_xp_time ||
+            now - seasonData.last_xp_time >= 60000
+          ) {
+            seasonData.last_xp_time = now;
+
+            const member = message.member;
+            let mult = 1;
+            if (member?.roles.cache.has("1018200127598497893")) mult += 0.5;
+            try {
+              const punchData = fs.readFileSync("./punch.txt", "utf-8");
+              const punchLine = punchData
+                .split("\n")
+                .find((l) => l.startsWith(message.author.id + ","));
+              if (punchLine && parseInt(punchLine.split(",")[1], 10) >= 3000)
+                mult += 0.25;
+            } catch {}
+            try {
+              const rouletteData = fs.readFileSync("./roulette.txt", "utf-8");
+              const rouletteLine = rouletteData
+                .split("\n")
+                .find((l) => l.startsWith(message.author.id + ","));
+              if (rouletteLine)
+                mult += parseInt(rouletteLine.split(",")[1], 10) * 0.025;
+            } catch {}
+            mult += (dailyStreak || 0) * 0.01;
+
+            const xpGained = Math.round(10 * mult);
+
+            const oldLevel = seasonData.level;
+            seasonData.xp = (seasonData.xp || 0) + xpGained;
+
+            const newLevel = getLevelFromXp(seasonData.xp, season);
+            if (newLevel > oldLevel) {
+              const crossedLevels = getLevelsToProcess(
+                seasonData.xp,
+                oldLevel,
+                season,
+              );
+              for (const lvl of crossedLevels) {
+                const reward =
+                  season.alternate_rewards?.[String(lvl)] ||
+                  season.default_reward;
+                const emoji = reward.emoji || "✉️";
+                const amount = reward.amount || 1;
+
+                if (reward.type === "pack") {
+                  addBpPack(
+                    message.author.id,
+                    reward.set,
+                    reward.pack_type,
+                    amount,
+                  );
+                } else if (reward.type === "role" && message.member) {
+                  try {
+                    await message.member.roles.add(reward.role_id);
+                  } catch {}
+                }
+
+                try {
+                  await message.react(emoji);
+                } catch {}
+              }
+
+              seasonData.level = newLevel;
+              if (!seasonData.claimed_levels) seasonData.claimed_levels = [];
+              seasonData.claimed_levels.push(...crossedLevels);
+            }
+          }
+
+          saveBpUser(bpUser);
+        }
+      }
+    } catch (e) {
+      console.error("BP XP error:", e);
+    }
+  }
   if (message.content.toLowerCase().includes("grok")) {
     await message.reply("K-9 better");
   }
@@ -462,63 +589,82 @@ client.on("messageCreate", async function (message) {
   let match = null;
 
   // check if message starts with "im " or "i'm"
-  if (lowerContent.startsWith("im ") || lowerContent.startsWith("i'm ")) {
-    match = lowerContent.match(/^(im|i'm)\s+(.*)/);
+  if (
+    lowerContent.startsWith("im ") ||
+    lowerContent.startsWith("i'm ") ||
+    lowerContent.startsWith("i’m ")
+  ) {
+    match = lowerContent.match(/^(im|i'm|i’m)\s+(.*)/);
   }
   // check if message starts with a ping (<@ID>) followed by "im " or "i'm"
   else if (lowerContent.match(/^<@!?\d+>\s+/)) {
-    match = lowerContent.match(/^<@!?\d+>\s+(im|i'm)\s+(.*)/);
+    match = lowerContent.match(/^<@!?\d+>\s+(im|i'm|i’m)\s+(.*)/);
   }
   // check if message starts with "@dead chat" (plain text or Role Ping <@&ID>) followed by "im " or "i'm"
   else if (
     lowerContent.startsWith("@dead chat") ||
     lowerContent.match(/^<@&\d+>\s+/)
   ) {
-    match = lowerContent.match(/^@dead\s+chat\s+(im|i'm)\s+(.*)/);
+    match = lowerContent.match(/^@dead\s+chat\s+(im|i'm|i’m)\s+(.*)/);
   }
   // check if message starts with "K-9" followed by "im " or "i'm"
   else if (
     lowerContent.startsWith("k-9") ||
     lowerContent.match(/^<@&\d+>\s+/)
   ) {
-    match = lowerContent.match(/^k-9\s+(im|i'm)\s+(.*)/);
+    match = lowerContent.match(/^k-9\s+(im|i'm|i’m)\s+(.*)/);
   }
 
   // if no match, check if user pinged dead chat role ID
   if (!match) {
-    match = lowerContent.match(/^<@&1018313736647352380>\s+(im|i'm)\s+(.*)/);
+    match = lowerContent.match(
+      /^<@&1018313736647352380>\s+(im|i'm|i’m)\s+(.*)/,
+    );
   }
-
   // If a valid "im" pattern was found, update the nickname
-  if (match) {
-    const nameChance = Math.random() * 5;
+  if (
+    !message.content.toLowerCase().includes("die") &&
+    !message.content.toLowerCase().includes("murder") &&
+    !message.content.toLowerCase().includes("suicide") &&
+    !message.content.toLowerCase().includes("commit") &&
+    !message.content.toLowerCase().includes("stab") &&
+    !message.content.toLowerCase().includes("shot") &&
+    !message.content.toLowerCase().includes("kill") &&
+    !message.content.toLowerCase().includes("rape") &&
+    !message.content.toLowerCase().includes("passed away") &&
+    !message.content.toLowerCase().includes("sick") &&
+    message.channel.parentId !== "1018467680568746065" // modmail category
+  ) {
+    if (match) {
+      const nameChance = Math.random() * 50;
 
-    if (nameChance < 1) {
-      let newNickname = match[match.length - 1].trim();
+      if (nameChance < 1) {
+        let newNickname = match[match.length - 1].trim();
 
-      if (newNickname.length > 32) {
-        newNickname = newNickname.substring(0, 32);
-      }
+        if (newNickname.length > 32) {
+          newNickname = newNickname.substring(0, 32);
+        }
 
-      const member = message.member;
+        const member = message.member;
 
-      if (
-        member &&
-        message.guild.members.me.permissions.has("ManageNicknames") &&
-        member.manageable
-      ) {
-        try {
-          await setTemporaryNickname(
-            member,
-            newNickname,
-            180000, // 3 minutes
-          );
+        if (
+          member &&
+          message.guild.members.me.permissions.has("ManageNicknames") &&
+          member.manageable
+        ) {
+          try {
+            await setTemporaryNickname(
+              member,
+              newNickname,
+              180000, // 3 minutes
+            );
 
-          await message.reply(
-            `Hi ${newNickname}! I'm K-9! User identification protocols updated.`,
-          );
-        } catch (error) {
-          console.error("Failed to update nickname:", error);
+            await message.reply(
+              `Hi ${newNickname}! I'm K-9! User identification protocols updated.`,
+            );
+          } catch (error) {
+            console.error("Failed to update nickname:", error);
+          }
         }
       }
     }

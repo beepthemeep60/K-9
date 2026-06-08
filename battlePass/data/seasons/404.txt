@@ -1,0 +1,1 @@
+make this a .json file to have no current active season

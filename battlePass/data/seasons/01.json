@@ -1,0 +1,43 @@
+{
+  "season": 1,
+  "name": "Season 1",
+  "participation_role_id": "1513508746465251421",
+  "xp_per_level": 100,
+  "default_reward": {
+    "type": "pack",
+    "set": "01",
+    "pack_type": "standard_pack",
+    "emoji": "✉️"
+  },
+  "alternate_rewards": {
+    "10": {
+      "type": "pack",
+      "set": "01",
+      "pack_type": "standard_pack",
+      "amount": 3,
+      "emoji": "💌"
+    },
+    "25": {
+      "type": "pack",
+      "set": "01",
+      "pack_type": "standard_pack",
+      "amount": 5,
+      "emoji": "💌"
+    },
+    "50": {
+      "type": "pack",
+      "set": "01",
+      "pack_type": "premium_pack",
+      "amount": 1,
+      "emoji": "💌"
+    },
+    "75": {
+      "type": "pack",
+      "set": "01",
+      "pack_type": "premium_pack",
+      "amount": 3,
+      "emoji": "💌"
+    },
+    "100": { "type": "role", "role_id": "1513509074858279053", "emoji": "👑" }
+  }
+}

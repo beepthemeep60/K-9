@@ -15,10 +15,25 @@ function loadUser(userId) {
       user_id: userId,
       packs: {},
       collection: {},
+      bio: "",
+      accent_color: "#2b2d31",
+      title: "",
+      stat1: "none",
+      stat2: "none",
+      claimed_titles: [],
+      trades_completed: 0,
     };
   }
 
-  return JSON.parse(fs.readFileSync(file, "utf8"));
+  const data = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (data.bio === undefined) data.bio = "";
+  if (data.accent_color === undefined) data.accent_color = "#2b2d31";
+  if (data.title === undefined) data.title = "";
+  if (data.stat1 === undefined) data.stat1 = "none";
+  if (data.stat2 === undefined) data.stat2 = "none";
+  if (data.claimed_titles === undefined) data.claimed_titles = [];
+  if (data.trades_completed === undefined) data.trades_completed = 0;
+  return data;
 }
 
 /**
@@ -165,6 +180,52 @@ function removeCard(userId, cardId, edition, amount = 1) {
   return true;
 }
 
+/**
+ * Remove multiple cards atomically.
+ * Returns true if all cards were removed successfully.
+ */
+function removeCards(userId, cards) {
+  const user = loadUser(userId);
+
+  for (const { cardId, edition, amount = 1 } of cards) {
+    if (
+      !user.collection?.[cardId]?.[edition] ||
+      user.collection[cardId][edition] < amount
+    ) {
+      return false;
+    }
+  }
+
+  for (const { cardId, edition, amount = 1 } of cards) {
+    user.collection[cardId][edition] -= amount;
+    if (user.collection[cardId][edition] === 0) {
+      delete user.collection[cardId][edition];
+    }
+    if (Object.keys(user.collection[cardId]).length === 0) {
+      delete user.collection[cardId];
+    }
+  }
+
+  saveUser(user);
+  return true;
+}
+
+function setFeaturedCard(userId, setId, cardId, edition) {
+  const user = loadUser(userId);
+  if (cardId) {
+    user.featured = { set_id: setId, card_id: cardId, edition };
+  } else {
+    delete user.featured;
+  }
+  saveUser(user);
+  return user;
+}
+
+function getFeaturedCard(userId) {
+  const user = loadUser(userId);
+  return user.featured || null;
+}
+
 module.exports = {
   loadUser,
   saveUser,
@@ -177,4 +238,8 @@ module.exports = {
   getCard,
   getTotalCardCount,
   removeCard,
+  removeCards,
+
+  setFeaturedCard,
+  getFeaturedCard,
 };

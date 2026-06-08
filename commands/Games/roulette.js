@@ -127,7 +127,13 @@ module.exports = {
 
             const proceedTurn = async () => {
                 if (gameEnded) return;
-            
+                if (players.length < 2) {
+                    await message.edit({ content: "Not enough players remaining.", components: [] });
+                    gameEnded = true;
+                    activeGameChannel = null;
+                    return;
+                }
+                currentTurnIndex = currentTurnIndex % players.length;
                 const currentPlayer = players[currentTurnIndex];
                 let buttons = players.map((player) => 
                     new ButtonBuilder()
@@ -148,14 +154,11 @@ module.exports = {
                     components: rows
                 });
             
-                const filter = i => players.map(p => p.name).includes(i.customId);
+                const filter = i => players.map(p => p.name).includes(i.customId) && i.user.id === currentPlayer.id;
                 const turnCollector = message.channel.createMessageComponentCollector({ filter, time: 30000 });
             
                 turnCollector.on('collect', async i => {
-                    if (i.user.id !== currentPlayer.id) {
-                        await i.reply({ content: "It's not your turn!", ephemeral: true });
-                        return;
-                    }
+                    if (i.user.id !== currentPlayer.id) return;
             
                     await i.deferUpdate();
             

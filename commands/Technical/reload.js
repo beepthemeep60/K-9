@@ -1,7 +1,7 @@
 // commands/reload.js
 
 const { SlashCommandBuilder } = require("@discordjs/builders");
-const { REST, Routes } = require("discord.js");
+const { REST, Routes, PermissionFlagsBits } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
@@ -13,14 +13,17 @@ const { restart } = require("../../restart");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("reload")
-    .setDescription("[DEVELOPER ONLY] Reloads the bot."),
+    .setDescription("[MODERATOR ONLY] Reloads the bot.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
   async execute(interaction) {
     await interaction.deferReply();
     // Check permissions
-    if (interaction.user.id !== "1037466389163814932") {
+    if (
+      !interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)
+    ) {
       return await interaction.editReply({
-        content: "You do not have permission to use this command.",
-        ephemeral: true,
+        content:
+          "You need the **Manage Members** permission to use this command.",
       });
     }
 
@@ -42,7 +45,7 @@ module.exports = {
           commands.push(command.data.toJSON());
         } else {
           console.log(
-            `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
+            `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`,
           );
         }
       }
@@ -54,7 +57,7 @@ module.exports = {
 
     try {
       await interaction.channel.send(
-        `Started refreshing ${commands.length} application (/) commands.`
+        `Started refreshing ${commands.length} application (/) commands.`,
       );
 
       const data = await rest.put(Routes.applicationCommands(clientId), {
@@ -62,7 +65,7 @@ module.exports = {
       });
 
       await interaction.channel.send(
-        `Successfully reloaded ${data.length} application (/) commands.`
+        `Successfully reloaded ${data.length} application (/) commands.`,
       );
       await interaction.channel.send("Restarting...");
       restart();
@@ -72,7 +75,7 @@ module.exports = {
       });
 
       await interaction.channel.send(
-        `Successfully reloaded ${data.length} application (/) commands.`
+        `Successfully reloaded ${data.length} application (/) commands.`,
       );
       await interaction.channel.send("Restarting...");
       restart();

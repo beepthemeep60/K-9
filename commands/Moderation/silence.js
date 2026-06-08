@@ -8,19 +8,19 @@ module.exports = {
       option
         .setName("user")
         .setDescription("The member to mute")
-        .setRequired(true)
+        .setRequired(true),
     )
     .addNumberOption((option) =>
       option
         .setName("duration")
         .setDescription("Number of minutes to mute for (Default: 1 hour)")
         .setMinValue(1)
-        .setMaxValue(40000)
+        .setMaxValue(40000),
     )
     .addStringOption((option) =>
       option
         .setName("reason")
-        .setDescription(`The reason for muting the member`)
+        .setDescription(`The reason for muting the member`),
     ),
   async execute(interaction) {
     await interaction.deferReply();
@@ -70,7 +70,7 @@ module.exports = {
       .setDescription(
         `<:Affirmative:1019680728759419011> ${muteUser} has been muted.\nReason: ${reason}\nDuration: ${minutes} minutes\n\nID: ${
           interaction.options.getUser("user").id
-        }`
+        }`,
       );
 
     let muteSuccessful = false;
@@ -83,7 +83,7 @@ module.exports = {
       console.log(error);
       interaction.editReply({
         content:
-          "I cannot mute this member!\nIf this is unexpected, please kick the member with a different bot and then report this issue on the [support page](https://k-9.vercel.app/Support.html)",
+          "I cannot mute this member!\nIf this is unexpected, please mute the member with a different bot and then report this issue on the [support page](https://k-9.vercel.app/Support.html)",
       });
     }
 

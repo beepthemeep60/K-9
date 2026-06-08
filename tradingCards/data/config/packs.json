@@ -1,6 +1,87 @@
 {
   "standard_pack": {
     "cards_per_pack": 5,
-    "guaranteed_min_rarity": "uncommon"
+    "guaranteed_min_rarity": "common",
+    "guaranteed_min_edition": "foil",
+    "emoji": "🎒",
+    "description": "5 cards - Final card guaranteed to have foil edition or better",
+    "god_pack_chance": 0.01,
+    "cover_overlay": "#808080",
+    "tiers": {
+      "common": { "weight": 100 },
+      "uncommon": { "weight": 20 },
+      "rare": { "weight": 10 },
+      "epic": { "weight": 3 },
+      "legendary": { "weight": 1 }
+    }
+  },
+  "premium_pack": {
+    "cards_per_pack": 3,
+    "guaranteed_min_rarity": "rare",
+    "guaranteed_min_edition": "basic",
+    "emoji": "⭐",
+    "description": "3 cards - All cards at least uncommon, final card guaranteed to be rare or higher",
+    "cover_overlay": "#ffd700",
+    "tiers": {
+      "common": { "weight": 0 },
+      "uncommon": { "weight": 20 },
+      "rare": { "weight": 10 },
+      "epic": { "weight": 3 },
+      "legendary": { "weight": 1 }
+    }
+  },
+  "feature_pack": {
+    "cards_per_pack": 1,
+    "guaranteed_min_rarity": "legendary",
+    "guaranteed_min_edition": "basic",
+    "emoji": "💎",
+    "description": "1 card - Guaranteed to be the legendary card from the current set",
+    "cover_overlay": "#aa44ff",
+    "tiers": {
+      "common": { "weight": 0 },
+      "uncommon": { "weight": 0 },
+      "rare": { "weight": 0 },
+      "epic": { "weight": 0 },
+      "legendary": { "weight": 100 }
+    }
+  },
+  "rainbow_pack": {
+    "cards_per_pack": 1,
+    "guaranteed_min_rarity": "rare",
+    "guaranteed_min_edition": "rainbow",
+    "emoji": "🌈",
+    "description": "1 card - Guaranteed to be rainbow and at least rare",
+    "cover_overlay": "rainbow",
+    "tiers": {
+      "common": { "weight": 0 },
+      "uncommon": { "weight": 0 },
+      "rare": { "weight": 10 },
+      "epic": { "weight": 3 },
+      "legendary": { "weight": 1 }
+    }
+  },
+  "admin_pack": {
+    "cards_per_pack": 100,
+    "guaranteed_min_rarity": "common",
+    "guaranteed_min_edition": "basic",
+    "emoji": "🔧",
+    "description": "100 cards - If you somehow got this, I'd recommend keeping it sealed as a flex",
+    "cover_overlay": "#44cc44",
+    "tiers": {
+      "common": { "weight": 100 },
+      "uncommon": { "weight": 20 },
+      "rare": { "weight": 10 },
+      "epic": { "weight": 3 },
+      "legendary": { "weight": 1 }
+    }
+  },
+  "beep_the_meep_pack": {
+    "cards_per_pack": 1,
+    "guaranteed_min_rarity": "rare",
+    "guaranteed_min_edition": "basic",
+    "fixed_cards": ["01085"],
+    "emoji": "👽",
+    "description": "Probably the most OP pack that will ever be added",
+    "set_restriction": ["01"]
   }
 }
