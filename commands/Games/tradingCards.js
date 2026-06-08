@@ -96,6 +96,28 @@ const RARITY_COLORS = {
 const DEFAULT_SET = Object.keys(setsConfig)[0] || "00";
 const DEFAULT_PACK = Object.keys(packsConfig)[0] || "standard_pack";
 const CARD_IMAGE_SIZE = 768;
+const IMG_CACHE = new Map();
+
+function cacheKey(type, id, edition, ...rest) {
+  return `${type}:${id}:${edition}:${rest.join(":")}`;
+}
+
+function cacheGet(key) {
+  const e = IMG_CACHE.get(key);
+  return e ? e.buf : null;
+}
+
+function cacheSet(key, buf) {
+  if (IMG_CACHE.size > 200) {
+    const k = IMG_CACHE.keys().next().value;
+    IMG_CACHE.delete(k);
+  }
+  IMG_CACHE.set(key, { buf });
+}
+
+function yieldLoop() {
+  return new Promise((r) => setImmediate(r));
+}
 
 function getSetName(setId, set) {
   return set?.set_name || setsConfig[setId]?.name || setId;
@@ -194,6 +216,13 @@ function applyEditionEffect(ctx, edition, width, height) {
 async function renderCardImage(card, pullIndex, user, set) {
   if (!card.art_url) return null;
 
+  const ck = cacheKey("card", card.id, card.edition, user?.id || "", set?.set_name || "");
+  const cached = cacheGet(ck);
+  if (cached) {
+    return new AttachmentBuilder(cached, { name: `card-${card.id}-${pullIndex}.png` });
+  }
+
+  await yieldLoop();
   const buf = await new Promise((resolve, reject) => {
     https
       .get(
@@ -248,12 +277,17 @@ async function renderCardImage(card, pullIndex, user, set) {
   }
 
   const attachmentName = `card-${card.id}-${pullIndex}.png`;
-  return new AttachmentBuilder(canvas.toBuffer("image/png"), {
-    name: attachmentName,
-  });
+  const pngBuf = canvas.toBuffer("image/png");
+  cacheSet(ck, pngBuf);
+  return new AttachmentBuilder(pngBuf, { name: attachmentName });
 }
 
 function renderEditionIcon(card, pullIndex, setId) {
+  const ek = cacheKey("edition", card.id, card.edition, setId || "");
+  const cached = cacheGet(ek);
+  if (cached) {
+    return new AttachmentBuilder(cached, { name: `edition-${card.id}-${pullIndex}.png` });
+  }
   const size = 160;
   const canvas = createCanvas(size, size);
   const ctx = canvas.getContext("2d");
@@ -289,9 +323,9 @@ function renderEditionIcon(card, pullIndex, setId) {
   ctx.fillText(stampEmoji, size / 2, size / 2 + 2);
 
   const attachmentName = `edition-${card.id}-${pullIndex}.png`;
-  return new AttachmentBuilder(canvas.toBuffer("image/png"), {
-    name: attachmentName,
-  });
+  const pngBuf = canvas.toBuffer("image/png");
+  cacheSet(ek, pngBuf);
+  return new AttachmentBuilder(pngBuf, { name: attachmentName });
 }
 
 function downloadImage(url) {
@@ -1133,20 +1167,21 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
     return;
   }
 
-  // Check for first-time uncommon+ pull (before addCards)
+  const user = addCards(interaction.user.id, cards);
+
+  // One-time "cards request" tip (never repeats)
   let showRequestTip = false;
   try {
     const bpUser = loadBpUser(interaction.user.id);
     const isTutorialPack = bpUser && bpUser.tutorial_step === 2;
-    if (!isTutorialPack) {
-      const preUser = loadUser(interaction.user.id);
+    if (!isTutorialPack && !user.request_tip_shown) {
       for (const card of cards) {
-        if (card.rarity == "uncommon") {
-          const owned = preUser.collection[card.id];
+        if (card.rarity === "uncommon") {
+          const owned = user.collection[card.id];
           const total = owned
             ? Object.values(owned).reduce((a, b) => a + b, 0)
             : 0;
-          if (total === 0) {
+          if (total === 1) {
             showRequestTip = true;
             break;
           }
@@ -1155,7 +1190,17 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
     }
   } catch {}
 
-  const user = addCards(interaction.user.id, cards);
+  if (showRequestTip) {
+    user.request_tip_shown = true;
+    try { saveUser(user); } catch {}
+    interaction
+      .followUp({
+        content:
+          "👀 **You got an uncommon card!**\n\nDid you know **you** can become a card in the next set? Use `/cards request` to submit your profile for one of our 20 uncommon cards or submit a Wikipedia article for one of the 64 uncommon ones in the next set!",
+        flags: 64,
+      })
+      .catch(() => {});
+  }
 
   // Tutorial step 3: opened a pack
   try {
@@ -1174,16 +1219,6 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
   } catch {}
 
   const achievementMsgs = await checkAndAwardTitles(user).catch(() => []);
-
-  if (showRequestTip) {
-    interaction
-      .followUp({
-        content:
-          "👀 **You got an uncommon card!**\n\nDid you know **you** can become a card in the next set? Use `/cards request` to submit your profile for one of our 20 uncommon cards or submit a Wikipedia article for one of the 64 uncommon ones in the next set!",
-        flags: 64,
-      })
-      .catch(() => {});
-  }
 
   const isGodPack = cards._godPack;
 
@@ -1260,6 +1295,7 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
           return;
         }
 
+        await yieldLoop();
         const cardMessage = await buildCardMessage(
           cards[0],
           set,
@@ -1289,6 +1325,7 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
         return;
       }
 
+      await yieldLoop();
       const cardMessage = await buildCardMessage(
         cards[currentIndex],
         set,
@@ -1750,6 +1787,7 @@ async function inspectCard(interaction) {
           selectedEdition =
             ownedEditionsForCard(ownedCardIds[currentCardIdx])[0] || null;
           await sel.deferUpdate();
+          await yieldLoop();
           const cardView = await buildCardViewPage(
             ownedCardIds[currentCardIdx],
             selectedEdition,
@@ -1785,6 +1823,7 @@ async function inspectCard(interaction) {
               selectedEdition =
                 ownedEditionsForCard(ownedCardIds[currentCardIdx])[0] || null;
               await inspSel.deferUpdate();
+              await yieldLoop();
               const cardView = await buildCardViewPage(
                 ownedCardIds[currentCardIdx],
                 selectedEdition,
@@ -1797,6 +1836,7 @@ async function inspectCard(interaction) {
               selectedEdition =
                 ownedEditionsForCard(ownedCardIds[currentCardIdx])[0] || null;
               await inspSel.deferUpdate();
+              await yieldLoop();
               const cardView = await buildCardViewPage(
                 ownedCardIds[currentCardIdx],
                 selectedEdition,
@@ -1807,6 +1847,7 @@ async function inspectCard(interaction) {
             if (inspSel.customId === inspectIds.rarity) {
               selectedEdition = inspSel.values[0];
               await inspSel.deferUpdate();
+              await yieldLoop();
               const cardView = await buildCardViewPage(
                 ownedCardIds[currentCardIdx],
                 selectedEdition,

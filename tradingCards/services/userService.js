@@ -22,6 +22,7 @@ function loadUser(userId) {
       stat2: "none",
       claimed_titles: [],
       trades_completed: 0,
+      request_tip_shown: false,
     };
   }
 
@@ -33,6 +34,7 @@ function loadUser(userId) {
   if (data.stat2 === undefined) data.stat2 = "none";
   if (data.claimed_titles === undefined) data.claimed_titles = [];
   if (data.trades_completed === undefined) data.trades_completed = 0;
+  if (data.request_tip_shown === undefined) data.request_tip_shown = false;
   return data;
 }
 
