@@ -2,6 +2,7 @@
   "season": 1,
   "name": "Season 1",
   "participation_role_id": "1513508746465251421",
+  "reward_set": "01",
   "xp_per_level": 100,
   "default_reward": {
     "type": "pack",

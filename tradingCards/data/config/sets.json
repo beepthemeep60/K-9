@@ -61,5 +61,68 @@
         "rewards": [{ "type": "premium_pack", "amount": 5 }]
       }
     ]
+  },
+  "02": {
+    "name": "Electric Boogaloo",
+    "emoji": "🐾",
+    "pack_cover_url": "https://k-9.vercel.app/assets/public/pack_covers/02.png",
+    "titles": [
+      {
+        "name": "Season Tuah",
+        "stat": "unique_cards",
+        "threshold": 25,
+        "description": "Own at least 25 unique Electric Boogaloo cards",
+        "rewards": [{ "type": "premium_pack", "amount": 1 }]
+      },
+      {
+        "name": "I hardly know 'er",
+        "stat": "unique_cards",
+        "threshold": 50,
+        "description": "Own at least 50 unique Electric Boogaloo cards",
+        "rewards": [{ "type": "premium_pack", "amount": 3 }]
+      },
+      {
+        "name": "Electric Boogaloo Master",
+        "stat": "unique_cards",
+        "threshold": 100,
+        "description": "Collect every unique card in Electric Boogaloo set",
+        "rewards": [{ "type": "rainbow_pack", "amount": 1 }]
+      },
+      {
+        "name": "Foil Freak",
+        "stat": "foil_cards",
+        "threshold": 25,
+        "description": "Own 25 Foil Electric Boogaloo cards",
+        "rewards": [{ "type": "standard_pack", "amount": 5 }]
+      },
+      {
+        "name": "Gold Rush",
+        "stat": "gold_cards",
+        "threshold": 10,
+        "description": "Own 10 Gold Electric Boogaloo cards",
+        "rewards": [{ "type": "standard_pack", "amount": 5 }]
+      },
+      {
+        "name": "Woke",
+        "stat": "rainbow_cards",
+        "threshold": 1,
+        "description": "Obtain your first Rainbow Electric Boogaloo card",
+        "rewards": [{ "type": "premium_pack", "amount": 3 }]
+      },
+      {
+        "name": "Woker",
+        "stat": "rainbow_cards",
+        "threshold": 5,
+        "description": "Own 5 Rainbow Electric Boogaloo edition cards",
+        "rewards": [{ "type": "rainbow_pack", "amount": 5 }]
+      },
+      {
+        "name": "Electric Boogaloo Hoarder",
+        "stat": "total_cards",
+        "threshold": 500,
+        "description": "Accumulate a total of 500 Electric Boogaloo cards",
+        "rewards": [{ "type": "premium_pack", "amount": 5 }]
+      }
+    ]
   }
 }

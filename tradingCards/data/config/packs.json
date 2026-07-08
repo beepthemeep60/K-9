@@ -8,10 +8,10 @@
     "god_pack_chance": 0.01,
     "cover_overlay": "#808080",
     "tiers": {
-      "common": { "weight": 100 },
-      "uncommon": { "weight": 20 },
-      "rare": { "weight": 10 },
-      "epic": { "weight": 3 },
+      "common": { "weight": 500 },
+      "uncommon": { "weight": 100 },
+      "rare": { "weight": 50 },
+      "epic": { "weight": 15 },
       "legendary": { "weight": 1 }
     }
   },
@@ -24,9 +24,9 @@
     "cover_overlay": "#ffd700",
     "tiers": {
       "common": { "weight": 0 },
-      "uncommon": { "weight": 20 },
-      "rare": { "weight": 10 },
-      "epic": { "weight": 3 },
+      "uncommon": { "weight": 100 },
+      "rare": { "weight": 50 },
+      "epic": { "weight": 15 },
       "legendary": { "weight": 1 }
     }
   },
@@ -55,8 +55,8 @@
     "tiers": {
       "common": { "weight": 0 },
       "uncommon": { "weight": 0 },
-      "rare": { "weight": 10 },
-      "epic": { "weight": 3 },
+      "rare": { "weight": 50 },
+      "epic": { "weight": 15 },
       "legendary": { "weight": 1 }
     }
   },
@@ -68,10 +68,10 @@
     "description": "100 cards - If you somehow got this, I'd recommend keeping it sealed as a flex",
     "cover_overlay": "#44cc44",
     "tiers": {
-      "common": { "weight": 100 },
-      "uncommon": { "weight": 20 },
-      "rare": { "weight": 10 },
-      "epic": { "weight": 3 },
+      "common": { "weight": 500 },
+      "uncommon": { "weight": 100 },
+      "rare": { "weight": 50 },
+      "epic": { "weight": 15 },
       "legendary": { "weight": 1 }
     }
   },
@@ -83,5 +83,22 @@
     "emoji": "👽",
     "description": "Probably the most OP pack that will ever be added",
     "set_restriction": ["01"]
+  },
+  "legacy_pack": {
+    "cards_per_pack": 15,
+    "guaranteed_min_rarity": "epic",
+    "guaranteed_min_edition": "timey_wimey",
+    "emoji": "⏳",
+    "description": "15 cards from ANY past set - 100% chance to have Timey Wimey edition with a purple swirl effect!",
+    "cover_overlay": "#9933ff",
+    "tiers": {
+      "common": { "weight": 500 },
+      "uncommon": { "weight": 100 },
+      "rare": { "weight": 50 },
+      "epic": { "weight": 15 },
+      "legendary": { "weight": 1 }
+    },
+    "legacy": true,
+    "forced_edition": "timey_wimey"
   }
 }

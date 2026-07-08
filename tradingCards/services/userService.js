@@ -23,6 +23,15 @@ function loadUser(userId) {
       claimed_titles: [],
       trades_completed: 0,
       request_tip_shown: false,
+      favourites: [],
+      settings: {
+        skip_pack_images: false,
+        disable_star_badge: false,
+        auto_open_packs: false,
+        disable_reactions: false,
+        disable_participation_role: false,
+      },
+      cards_500_tip_shown: false,
     };
   }
 
@@ -35,6 +44,24 @@ function loadUser(userId) {
   if (data.claimed_titles === undefined) data.claimed_titles = [];
   if (data.trades_completed === undefined) data.trades_completed = 0;
   if (data.request_tip_shown === undefined) data.request_tip_shown = false;
+  if (data.cards_500_tip_shown === undefined) data.cards_500_tip_shown = false;
+  if (data.settings === undefined)
+    data.settings = {
+      skip_pack_images: false,
+      disable_star_badge: false,
+      auto_open_packs: false,
+      disable_reactions: false,
+      disable_participation_role: false,
+    };
+  if (data.settings.disable_star_badge === undefined)
+    data.settings.disable_star_badge = false;
+  if (data.settings.auto_open_packs === undefined)
+    data.settings.auto_open_packs = false;
+  if (data.settings.disable_reactions === undefined)
+    data.settings.disable_reactions = false;
+  if (data.settings.disable_participation_role === undefined)
+    data.settings.disable_participation_role = false;
+  if (data.favourites === undefined) data.favourites = [];
   return data;
 }
 
@@ -154,35 +181,6 @@ function getTotalCardCount(userId, cardId) {
 }
 
 /**
- * Remove a specific card edition.
- * Useful for trading, crafting, etc.
- */
-function removeCard(userId, cardId, edition, amount = 1) {
-  const user = loadUser(userId);
-
-  if (
-    !user.collection?.[cardId]?.[edition] ||
-    user.collection[cardId][edition] < amount
-  ) {
-    return false;
-  }
-
-  user.collection[cardId][edition] -= amount;
-
-  if (user.collection[cardId][edition] === 0) {
-    delete user.collection[cardId][edition];
-  }
-
-  if (Object.keys(user.collection[cardId]).length === 0) {
-    delete user.collection[cardId];
-  }
-
-  saveUser(user);
-
-  return true;
-}
-
-/**
  * Remove multiple cards atomically.
  * Returns true if all cards were removed successfully.
  */
@@ -209,7 +207,80 @@ function removeCards(userId, cards) {
   }
 
   saveUser(user);
+  removeOrphanedFavourites(user);
   return true;
+}
+
+/**
+ * Remove favourited card entries that the user no longer owns.
+ */
+function removeOrphanedFavourites(user) {
+  if (!user.favourites) return;
+  const before = user.favourites.length;
+  user.favourites = user.favourites.filter((f) => {
+    const owned = user.collection?.[f.card_id];
+    return owned && (owned[f.edition] || 0) > 0;
+  });
+  if (user.favourites.length !== before) {
+    saveUser(user);
+  }
+}
+
+function removeCard(userId, cardId, edition, amount = 1) {
+  const user = loadUser(userId);
+
+  if (
+    !user.collection?.[cardId]?.[edition] ||
+    user.collection[cardId][edition] < amount
+  ) {
+    return false;
+  }
+
+  user.collection[cardId][edition] -= amount;
+
+  if (user.collection[cardId][edition] === 0) {
+    delete user.collection[cardId][edition];
+  }
+
+  if (Object.keys(user.collection[cardId]).length === 0) {
+    delete user.collection[cardId];
+  }
+
+  saveUser(user);
+  removeOrphanedFavourites(user);
+
+  return true;
+}
+
+function toggleFavouriteCard(userId, cardId, edition) {
+  const user = loadUser(userId);
+  if (!user.favourites) user.favourites = [];
+
+  const existing = user.favourites.findIndex(
+    (f) => f.card_id === cardId && f.edition === edition,
+  );
+  if (existing !== -1) {
+    user.favourites.splice(existing, 1);
+  } else {
+    if (user.favourites.length >= 10) return { success: false, reason: "max" };
+    user.favourites.push({ card_id: cardId, edition });
+  }
+  saveUser(user);
+  return { success: true, favourited: existing === -1 };
+}
+
+function getFavouriteCards(userId) {
+  const user = loadUser(userId);
+  if (!user.favourites) return [];
+  const valid = user.favourites.filter((f) => {
+    const owned = user.collection?.[f.card_id];
+    return owned && (owned[f.edition] || 0) > 0;
+  });
+  if (valid.length !== user.favourites.length) {
+    user.favourites = valid;
+    saveUser(user);
+  }
+  return valid;
 }
 
 function setFeaturedCard(userId, setId, cardId, edition) {
@@ -241,7 +312,10 @@ module.exports = {
   getTotalCardCount,
   removeCard,
   removeCards,
+  removeOrphanedFavourites,
 
   setFeaturedCard,
   getFeaturedCard,
+  toggleFavouriteCard,
+  getFavouriteCards,
 };

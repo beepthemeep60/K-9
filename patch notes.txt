@@ -1,47 +1,19 @@
-K-9 Version 10 notes
+K-9 Version 11 notes
 ---------------------
 New features:
-    - Added battle pass feature! Run `/battlepass` to get started
-    - Added trading cards! With multiple new commands:
-        1. `/cards collection`
-        2. `/cards inspect`
-        3. `/cards inventory`
-        4. `/cards open`
-        5. `/cards profile`
-        6. `/cards set`
-        7. `/cards trade`
-        8. `/cards help`
-        9. `/cards stats`
-        10. `/cards request`
-    - Saying "I'm" at the start of your message now has a 1/50 chance to change your name (reverts after 3 minutes)
-    - 1/50 chance of K-9 giving a random user a prediction, twice a day
+- Released season 2!!
+- Added `/muteself`
+- Added `/dayswithoutincident`
+- Added the ability to favourite cards
+- Can now open 10 packs at once
+- Added `/cards settings`
+- Added daily login pack
 
-Updates to older features:
-    - /companion and /regenerate now change your name back to normal after 3 minutes 
-    - /punch messages are now ephemeral
-    - /avatar can now get the avatar of any user
-    - /wheretostart has been rewritten and improved!
-    - Small update to K-9's website
-    - User reporting page is now mentioned in /help so it's less forgotten about
-    - Roulette should no longer break
-
-Less interesting changes:
-    - !!restart has been removed, if the bot is bugging please ask a mod to restart it for you
-    - Changed the status message slightly bc it was misquoted
-    - Removed bart command (it was too much for K-9's poor brain to handle)
-    - Removed the societies stuff
-    - /reload can now be used by mods
-    - added /unmute for mods
-    - renamed /removewarn to /forgive
-
-More technical changes for logging purposes:
-    - K-9 now backs up scoreboards to a thread weekly
-    - Removed the following from git repo:
-        1. punch.txt
-        2. roulette.txt
-        3. snowmen.txt
-        4. warns.txt
-        5. pets.txt
-        6. random prettier file
-        7. super old replit files (sure hope these aren't load bearing for some reason)
-    - admin only command. /source has been moved inside this
+Updates:
+- Easier to find cards in `/cards trade`
+- Edition filter added to `/cards collection` and `/cards set`
+- Legendary cards are now 10x rarer across all packs
+- Battle pass XP gain capped at 3 levels per day
+- Daily XP streak increased from 1% to 2.5% per day
+- Level up requirement is 10x higher
+- Updated message moderation text

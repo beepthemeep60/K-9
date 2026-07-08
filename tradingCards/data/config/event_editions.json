@@ -1,10 +1,6 @@
 {
-  "christmas": {
-    "display_name": "Christmas",
-    "weight": 15
-  },
-  "halloween": {
-    "display_name": "Halloween",
-    "weight": 15
+  "timey_wimey": {
+    "display_name": "Timey Wimey",
+    "weight": 0
   }
 }

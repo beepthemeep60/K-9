@@ -9,3 +9,6 @@ package.json
 package-lock.json
 tradingCards/data/users
 battlePass/data/users
+logs
+dayswithoutincident.json
+tmp_dump

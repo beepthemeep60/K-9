@@ -108,6 +108,29 @@ module.exports = {
             .addUserOption((o) =>
               o.setName("user").setDescription("Target user").setRequired(true),
             ),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("circulation")
+            .setDescription("Show total cards of each edition in circulation")
+            .addStringOption((o) =>
+              o.setName("card").setDescription("Card ID to look up (optional)").setRequired(false),
+            ),
+        ),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("doublexp")
+        .setDescription("Toggle global double XP boost")
+        .addStringOption((o) =>
+          o
+            .setName("state")
+            .setDescription("Enable or disable")
+            .setRequired(true)
+            .addChoices(
+              { name: "Enable", value: "enable" },
+              { name: "Disable", value: "disable" },
+            ),
         ),
     )
     .addSubcommandGroup((group) =>
@@ -224,6 +247,94 @@ module.exports = {
     const group = interaction.options.getSubcommandGroup();
     const subcommand = interaction.options.getSubcommand();
 
+    if (subcommand === "doublexp") {
+      const state = interaction.options.getString("state");
+      const fs = require("fs");
+      const path = require("path");
+      const doubleXpPath = path.join(__dirname, "../../battlePass/data/doubleXp.json");
+      fs.writeFileSync(doubleXpPath, JSON.stringify({ enabled: state === "enable" }, null, 2), "utf8");
+      await interaction.reply({
+        content: `Global double XP has been **${state === "enable" ? "enabled" : "disabled"}**.`,
+        flags: 64,
+      });
+      return;
+    }
+
+    if (subcommand === "circulation") {
+      await interaction.deferReply({ flags: 64 });
+      const fs = require("fs");
+      const path = require("path");
+      const usersPath = path.join(__dirname, "../../tradingCards/data/users");
+      const editionsConfig = require("../../tradingCards/data/config/editions.json");
+      const eventEditionsConfig = require("../../tradingCards/data/config/event_editions.json");
+      const allEditionKeys = Object.keys({ ...editionsConfig, ...eventEditionsConfig });
+      const cardId = interaction.options.getString("card");
+
+      const counts = {};
+      for (const ed of allEditionKeys) counts[ed] = 0;
+      let totalCards = 0;
+      let totalUsers = 0;
+
+      if (fs.existsSync(usersPath)) {
+        const files = fs.readdirSync(usersPath).filter(f => f.endsWith(".json"));
+        for (const file of files) {
+          try {
+            const data = JSON.parse(fs.readFileSync(path.join(usersPath, file), "utf8"));
+            const collections = cardId
+              ? { [cardId]: data.collection?.[cardId] || {} }
+              : data.collection || {};
+            let hasCards = false;
+            for (const editions of Object.values(collections)) {
+              for (const [ed, count] of Object.entries(editions)) {
+                if (counts[ed] !== undefined) counts[ed] += count;
+                totalCards += count;
+                hasCards = true;
+              }
+            }
+            if (hasCards) totalUsers++;
+          } catch {}
+        }
+      }
+
+      let embed;
+      if (cardId) {
+        const setFiles = fs.readdirSync(path.join(__dirname, "../../tradingCards/data/sets")).filter(f => f.endsWith(".json"));
+        let cardName = cardId;
+        for (const sf of setFiles) {
+          try {
+            const setData = JSON.parse(fs.readFileSync(path.join(__dirname, "../../tradingCards/data/sets", sf), "utf8"));
+            if (setData.cards?.[cardId]) { cardName = setData.cards[cardId].name; break; }
+          } catch {}
+        }
+        embed = new EmbedBuilder()
+          .setColor(0x2b2d31)
+          .setTitle(`📊 Card Circulation — ${cardId}`)
+          .setDescription(`**${cardName}**\n**Total copies:** ${totalCards.toLocaleString()}\n**Owners:** ${totalUsers}`)
+          .addFields(
+            ...allEditionKeys.filter(ed => counts[ed] > 0).map(ed => ({
+              name: (editionsConfig[ed]?.display_name || eventEditionsConfig[ed]?.display_name || ed),
+              value: `**${counts[ed].toLocaleString()}** copies`,
+              inline: true,
+            })),
+          );
+      } else {
+        embed = new EmbedBuilder()
+          .setColor(0x2b2d31)
+          .setTitle("📊 Card Circulation")
+          .setDescription(`**Total cards in circulation:** ${totalCards.toLocaleString()}\n**Users with cards:** ${totalUsers}`)
+          .addFields(
+            ...allEditionKeys.map(ed => ({
+              name: (editionsConfig[ed]?.display_name || eventEditionsConfig[ed]?.display_name || ed),
+              value: `**${counts[ed].toLocaleString()}** cards`,
+              inline: true,
+            })),
+          );
+      }
+
+      await interaction.editReply({ embeds: [embed] });
+      return;
+    }
+
     if (group !== "cards" && group !== "source") return;
 
     async function dmUser(user, content) {
@@ -248,12 +359,13 @@ module.exports = {
 
       const setIdPicker = `give-set-${interaction.id}`;
       const cancelId = `give-cancel-${interaction.id}`;
+      const legacyGiveId = `give-legacy-${interaction.id}`;
 
       const setEmbed = new EmbedBuilder()
         .setColor(0x2b2d31)
         .setTitle("📦 Select a set")
         .setDescription(
-          `Giving **${count}** pack(s) to <@${target.id}>\nChoose a set to continue.`,
+          `Giving **${count}** pack(s) to <@${target.id}>\nChoose a set, or give a legacy pack.`,
         );
 
       const setRow = new ActionRowBuilder().addComponents(
@@ -261,6 +373,12 @@ module.exports = {
           .setCustomId(setIdPicker)
           .setPlaceholder("Choose a set")
           .addOptions(setOptions),
+      );
+      const legacyRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(legacyGiveId)
+          .setLabel("⏳ Give Legacy Pack")
+          .setStyle(ButtonStyle.Primary),
       );
       const cancelRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -271,15 +389,16 @@ module.exports = {
 
       const setMsg = await interaction.editReply({
         embeds: [setEmbed],
-        components: [setRow, cancelRow],
+        components: [setRow, legacyRow, cancelRow],
       });
 
       let targetSetId;
+      let targetPackType;
       try {
         const selection = await setMsg.awaitMessageComponent({
           filter: (i) =>
             i.user.id === interaction.user.id &&
-            (i.customId === setIdPicker || i.customId === cancelId),
+            (i.customId === setIdPicker || i.customId === legacyGiveId || i.customId === cancelId),
           time: 60000,
         });
         if (selection.customId === cancelId) {
@@ -290,8 +409,14 @@ module.exports = {
           });
           return;
         }
-        targetSetId = selection.values[0];
-        await selection.deferUpdate();
+        if (selection.customId === legacyGiveId) {
+          targetSetId = setIds[0];
+          targetPackType = Object.keys(packsConfig).find((pt) => packsConfig[pt]?.legacy) || "legacy_pack";
+          await selection.deferUpdate();
+        } else {
+          targetSetId = selection.values[0];
+          await selection.deferUpdate();
+        }
       } catch {
         await interaction.editReply({
           content: "Timed out.",
@@ -300,8 +425,32 @@ module.exports = {
         return;
       }
 
+      if (targetPackType) {
+        // Legacy pack — skip pack type selection
+        await interaction.editReply({
+          content: `Giving **${count}** ${titleCase(getPackName(targetPackType))} pack(s) to <@${target.id}>...`,
+          components: [],
+        });
+        let given = 0;
+        for (let i = 0; i < count; i++) {
+          if (addPack(target.id, targetSetId, targetPackType, 1)) {
+            given++;
+          }
+        }
+        await dmUser(
+          target,
+          `You received **${given}** ${titleCase(getPackName(targetPackType))} from an admin.`,
+        );
+        await interaction.editReply({
+          content: `Gave **${given}** ${titleCase(getPackName(targetPackType))} pack(s) to <@${target.id}>.`,
+          components: [],
+        });
+        return;
+      }
+
       const packOptions = Object.entries(packsConfig)
         .filter(([, pack]) => {
+          if (pack.legacy) return false;
           const restriction = pack.set_restriction;
           return !restriction || restriction.includes(targetSetId);
         })
@@ -345,7 +494,7 @@ module.exports = {
         components: [packRow, cancelPackRow],
       });
 
-      let targetPackType;
+      targetPackType = null;
       try {
         const selection = await packMsg.awaitMessageComponent({
           filter: (i) =>

@@ -16,6 +16,7 @@ const {
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const https = require("https");
 const path = require("path");
+const fs = require("fs");
 
 const {
   loadSet,
@@ -35,13 +36,18 @@ const {
   getTotalCardCount,
   removeCard,
   removeCards,
+  removeOrphanedFavourites,
   setFeaturedCard,
   getFeaturedCard,
+  toggleFavouriteCard,
+  getFavouriteCards,
 } = require("../../tradingCards/services/userService");
 const {
   loadUser: loadBpUser,
   saveUser: saveBpUser,
   getCurrentSeason,
+  getLatestSeasonId,
+  loadSeason,
 } = require("../../battlePass/services/battlePassService");
 
 const DATA_PATH = path.join(__dirname, "../../tradingCards/data");
@@ -80,6 +86,7 @@ const EDITION_ABBR = {
   gold: "G",
   unpleasant: "U",
   rainbow: "R",
+  timey_wimey: "TW",
 };
 const RARITY_ORDER = ["legendary", "epic", "rare", "uncommon", "common"];
 const CARDS_PER_PAGE = 30;
@@ -92,6 +99,17 @@ const RARITY_COLORS = {
   epic: 0xaa55ff,
   legendary: 0xee8822,
 };
+
+function getHighestRarity(cards) {
+  let highest = "common";
+  for (const card of cards) {
+    const idx = RARITY_ORDER.indexOf(card.rarity);
+    if (idx >= 0 && idx < RARITY_ORDER.indexOf(highest)) {
+      highest = card.rarity;
+    }
+  }
+  return highest;
+}
 
 const DEFAULT_SET = Object.keys(setsConfig)[0] || "00";
 const DEFAULT_PACK = Object.keys(packsConfig)[0] || "standard_pack";
@@ -143,9 +161,12 @@ function titleCase(value) {
 }
 
 function getCompletionStats(user, set) {
-  const owned = Object.keys(set.cards).filter(
-    (cardId) => user.collection[cardId],
-  ).length;
+  const owned = Object.keys(set.cards).filter((cardId) => {
+    if (!user.collection[cardId]) return false;
+    return Object.keys(user.collection[cardId]).some(
+      (ed) => ed !== "timey_wimey" && user.collection[cardId][ed] > 0,
+    );
+  }).length;
   const total = getSetTotal(set);
 
   return {
@@ -196,9 +217,24 @@ function applyEditionEffect(ctx, edition, width, height) {
     ctx.globalCompositeOperation = "multiply";
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
+  } else if (edition === "timey_wimey") {
+    // Visible purple spiral
+    const swirlGrad = ctx.createConicGradient(0, width / 2, height / 2);
+    swirlGrad.addColorStop(0.0, "#3111e7cc");
+    swirlGrad.addColorStop(0.1, "rgb(154, 17, 245)");
+    swirlGrad.addColorStop(0.2, "#008cffcc");
+    swirlGrad.addColorStop(0.3, "rgb(255, 0, 221)");
+    swirlGrad.addColorStop(0.4, "#b700ffcc");
+    swirlGrad.addColorStop(0.5, "rgb(16, 19, 216)");
+    swirlGrad.addColorStop(0.6, "#8c00ffbe");
+    swirlGrad.addColorStop(0.7, "rgb(0, 162, 255)");
+    swirlGrad.addColorStop(0.8, "#ff00ffcc");
+    swirlGrad.addColorStop(0.9, "rgb(89, 0, 255)");
+    swirlGrad.addColorStop(1.0, "#3111e7cc");
+    ctx.globalCompositeOperation = "multiply";
+    ctx.fillStyle = swirlGrad;
+    ctx.fillRect(0, 0, width, height);
   }
-
-  ctx.globalCompositeOperation = "source-over";
 
   if (edition === "foil") {
     const silverGradient = ctx.createLinearGradient(0, 0, width, height);
@@ -216,12 +252,17 @@ function applyEditionEffect(ctx, edition, width, height) {
 async function renderCardImage(card, pullIndex, user, set) {
   if (!card.art_url) return null;
 
+  const ownedState = user?.collection?.[card.id]
+    ? JSON.stringify(Object.entries(user.collection[card.id]).sort())
+    : "";
   const ck = cacheKey(
     "card",
     card.id,
     card.edition,
     user?.id || "",
     set?.set_name || "",
+    ownedState,
+    user?.settings?.disable_star_badge ? "starOff" : "starOn",
   );
   const cached = cacheGet(ck);
   if (cached) {
@@ -257,7 +298,8 @@ async function renderCardImage(card, pullIndex, user, set) {
 
   if (user && set) {
     const fullCard = set.cards[card.id];
-    if (fullCard && ownsAllEditions(user, card.id, fullCard)) {
+    const disabled = user.settings?.disable_star_badge;
+    if (!disabled && fullCard && ownsAllEditions(user, card.id, fullCard)) {
       const cx = canvas.width - 40,
         cy = 40,
         r = 30,
@@ -451,7 +493,7 @@ async function buildCardMessage(card, set, setId, user, pullIndex) {
     .setColor(RARITY_COLORS[card.rarity] || 0xffffff)
     .setAuthor({ name: `${setName} - ${card.type || titleCase(card.rarity)}` })
     .setTitle(card.name)
-    .setDescription(card.description || "No description.")
+    .setDescription(card.description || null)
     .addFields({
       name: "Edition:",
       value: getEditionName(card.edition),
@@ -500,6 +542,7 @@ function buildNavigationRow(currentIndex, total, ids, opened = true) {
 
 function buildSummaryMessage(cards, set, setId, user, packType) {
   const pulled = new Map();
+  const isGodPack = cards._godPack;
 
   for (const card of cards) {
     const key = `${card.id}:${card.edition}`;
@@ -513,8 +556,14 @@ function buildSummaryMessage(cards, set, setId, user, packType) {
     return `${count}x ${card.name} - ${titleCase(card.rarity)} (${edition})`;
   });
 
+  const highest = getHighestRarity(cards);
+  const title = isGodPack
+    ? `🌟 ${titleCase(getPackName(packType))} — GOD PACK!`
+    : `${titleCase(getPackName(packType))} summary`;
+
   const embed = new EmbedBuilder()
-    .setTitle(`${titleCase(getPackName(packType))} summary`)
+    .setTitle(title)
+    .setColor(RARITY_COLORS[highest] || 0x2b2d31)
     .setDescription(lines.join("\n"));
 
   return { embeds: [embed], components: [], files: [], attachments: [] };
@@ -537,6 +586,19 @@ function buildRaritySelect(card, selectedEdition, customId, availableEditions) {
       .setPlaceholder("Change edition")
       .addOptions(options.slice(0, 25)),
   );
+}
+
+function isCardFavourited(favourites, cardId, edition) {
+  return favourites.some((f) => f.card_id === cardId && f.edition === edition);
+}
+
+function buildFavButton(inspectIds, userId, cardId, edition) {
+  const favs = getFavouriteCards(userId);
+  const isFav = isCardFavourited(favs, cardId, edition);
+  return new ButtonBuilder()
+    .setCustomId(inspectIds.fav)
+    .setLabel(isFav ? "⭐ Unfavourite" : "⭐ Favourite")
+    .setStyle(ButtonStyle.Secondary);
 }
 
 function filterChoices(choices, query) {
@@ -590,7 +652,7 @@ function getCardChoices(
 function getOwnedEditions(user, cardId, card) {
   const allowedEditions = new Set([
     ...(card.editions || Object.keys(editionTable)),
-    ...(card.event_editions || []),
+    ...(card.event_editions || Object.keys(eventEditionTable)),
   ]);
 
   return Object.entries(user.collection?.[cardId] || {})
@@ -709,11 +771,13 @@ function getCardAllowedEditions(card) {
       ...(card.event_editions || []),
     ];
   }
-  return Object.keys(allEditions);
+  return Object.keys(editionTable);
 }
 
 function ownsAllEditions(user, cardId, card) {
-  const allowed = getCardAllowedEditions(card);
+  const allowed = getCardAllowedEditions(card).filter(
+    (ed) => ed !== "timey_wimey",
+  );
   const owned = user.collection?.[cardId] || {};
   return allowed.every((ed) => (owned[ed] || 0) > 0);
 }
@@ -880,6 +944,30 @@ async function buildProfileEmbed(target, user) {
     descParts.push(`**${showTitle}**`);
   }
   if (descParts.length) embed.setDescription(descParts.join("\n\n"));
+
+  // Favourite cards
+  const favourites = getFavouriteCards(target.id).filter((f) => {
+    return user.collection?.[f.card_id]?.[f.edition] > 0;
+  });
+  if (favourites.length > 0) {
+    const favLines = favourites.map((f, i) => {
+      for (const sid of Object.keys(setsConfig)) {
+        try {
+          const s = resolveSet(sid);
+          const c = s.cards[f.card_id];
+          if (c) {
+            return `**${i + 1}.** ${c.name} - ${getEditionName(f.edition)}`;
+          }
+        } catch {}
+      }
+      return `**${i + 1}.** ${f.card_id} - ${getEditionName(f.edition)}`;
+    });
+    embed.addFields({
+      name: `⭐ Favourites (${favourites.length}/10)`,
+      value: favLines.join("\n"),
+      inline: false,
+    });
+  }
 
   const files = [];
   const featured = getFeaturedCard(target.id);
@@ -1214,6 +1302,25 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
       .catch(() => {});
   }
 
+  // 500+ cards tip
+  const totalCards = Object.values(user.collection || {}).reduce(
+    (sum, editions) => sum + Object.values(editions).reduce((a, b) => a + b, 0),
+    0,
+  );
+  if (totalCards >= 500 && !user.cards_500_tip_shown) {
+    user.cards_500_tip_shown = true;
+    try {
+      saveUser(user);
+    } catch {}
+    interaction
+      .followUp({
+        content:
+          "Did you know you can run `/cards settings` to skip pack openings or open packs automatically?",
+        flags: 64,
+      })
+      .catch(() => {});
+  }
+
   // Tutorial step 3: opened a pack
   try {
     const bpUser = loadBpUser(interaction.user.id);
@@ -1233,6 +1340,29 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
   const achievementMsgs = await checkAndAwardTitles(user).catch(() => []);
 
   const isGodPack = cards._godPack;
+
+  // Check user setting: skip pack images
+  const userSettings = user.settings || { skip_pack_images: false };
+  const shouldSkipImages = userSettings.skip_pack_images;
+  const skipToSummary = shouldSkipImages || cards.length > 10;
+
+  if (skipToSummary) {
+    await interaction.editReply(
+      buildSummaryMessage(cards, set, setId, user, packType),
+    );
+    const achievementMsgs2 = await checkAndAwardTitles(
+      loadUser(interaction.user.id),
+    ).catch(() => []);
+    if (achievementMsgs2?.length) {
+      await interaction
+        .followUp({
+          content: `${achievementMsgs2.join("\n\n")}\n\n-# Run \`/cards profile\` to change your title!\n-# Run \`/cards inventory\` to inspect your owned packs!`,
+          flags: 64,
+        })
+        .catch(() => {});
+    }
+    return;
+  }
 
   const ids = {
     left: `cards-left-${interaction.id}`,
@@ -1298,14 +1428,6 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
 
       if (buttonInteraction.customId === ids.finished && !opened) {
         opened = true;
-
-        if (cards.length > 10) {
-          await interaction.editReply(
-            buildSummaryMessage(cards, set, setId, user, packType),
-          );
-          collector.stop("finished");
-          return;
-        }
 
         await yieldLoop();
         const cardMessage = await buildCardMessage(
@@ -1381,6 +1503,169 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
   });
 }
 
+async function openMultiplePacksAndShow(
+  interaction,
+  { setId, packType, set, pack, count },
+) {
+  const removed = removePack(interaction.user.id, setId, packType, count);
+  if (!removed) {
+    await interaction.editReply({
+      content: "Those packs could not be opened.",
+    });
+    return;
+  }
+
+  const allPackResults = [];
+  for (let i = 0; i < count; i++) {
+    const cards = openPack(
+      set,
+      packsConfig,
+      editionTable,
+      eventEditionTable,
+      pack.cards_per_pack || 5,
+      pack,
+    );
+    if (cards.length) {
+      allPackResults.push(cards);
+    }
+  }
+
+  if (!allPackResults.length) {
+    addPack(interaction.user.id, setId, packType, count);
+    await interaction.editReply({
+      content:
+        "These packs did not contain any configured cards, so they were returned to you.",
+    });
+    return;
+  }
+
+  for (const cards of allPackResults) {
+    addCards(interaction.user.id, cards);
+  }
+
+  const userData = loadUser(interaction.user.id);
+
+  // 500+ cards tip
+  const totalCards = Object.values(userData.collection || {}).reduce(
+    (sum, editions) => sum + Object.values(editions).reduce((a, b) => a + b, 0),
+    0,
+  );
+  if (totalCards >= 500 && !userData.cards_500_tip_shown) {
+    userData.cards_500_tip_shown = true;
+    try {
+      saveUser(userData);
+    } catch {}
+    interaction
+      .followUp({
+        content:
+          "🎉 **You have over 500 cards!**\n\nYou can change your card settings anytime with `/cards settings` to customise your experience!",
+        flags: 64,
+      })
+      .catch(() => {});
+  }
+
+  const achievementMsgs = await checkAndAwardTitles(userData).catch(() => []);
+
+  // Build summaries for each pack
+  const summaries = allPackResults.map((cards, idx) => {
+    const pulled = new Map();
+    let hasGodPack = cards._godPack;
+    for (const card of cards) {
+      const key = `${card.id}:${card.edition}`;
+      const current = pulled.get(key) || { card, count: 0 };
+      current.count++;
+      pulled.set(key, current);
+    }
+    const lines = [...pulled.values()].map(({ card, count }) => {
+      const edition = getEditionName(card.edition);
+      return `${count}x ${card.name} - ${titleCase(card.rarity)} (${edition})`;
+    });
+
+    const highest = getHighestRarity(cards);
+    const title = hasGodPack
+      ? `🌟 ${titleCase(getPackName(packType))} ${idx + 1}/${count} — GOD PACK!`
+      : `${titleCase(getPackName(packType))} ${idx + 1}/${count}`;
+
+    return {
+      embed: new EmbedBuilder()
+        .setTitle(title)
+        .setColor(RARITY_COLORS[highest] || 0x2b2d31)
+        .setDescription(lines.join("\n")),
+    };
+  });
+
+  let currentSummaryIdx = 0;
+  const navIds = {
+    left: `bulk-left-${interaction.id}`,
+    right: `bulk-right-${interaction.id}`,
+  };
+
+  function buildBulkMessage(idx) {
+    const summary = summaries[idx];
+    return {
+      embeds: [summary.embed],
+      components: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(navIds.left)
+            .setLabel("←")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(idx <= 0),
+          new ButtonBuilder()
+            .setCustomId(navIds.right)
+            .setLabel("→")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(idx >= summaries.length - 1),
+        ),
+      ],
+    };
+  }
+
+  const response = await interaction.editReply(buildBulkMessage(0));
+  const collector = response.createMessageComponentCollector({
+    componentType: ComponentType.Button,
+    time: 5 * 60 * 1000,
+  });
+
+  collector.on("collect", async (btn) => {
+    try {
+      if (btn.user.id !== interaction.user.id) {
+        await btn.reply({
+          content:
+            "Only the person who opened these packs can use these buttons.",
+          flags: 64,
+        });
+        return;
+      }
+
+      if (btn.customId === navIds.left) {
+        currentSummaryIdx = Math.max(0, currentSummaryIdx - 1);
+        await btn.update(buildBulkMessage(currentSummaryIdx));
+      } else if (btn.customId === navIds.right) {
+        currentSummaryIdx = Math.min(
+          summaries.length - 1,
+          currentSummaryIdx + 1,
+        );
+        await btn.update(buildBulkMessage(currentSummaryIdx));
+      }
+    } catch (err) {
+      console.error("Bulk open error:", err);
+    }
+  });
+
+  collector.on("end", async (_, reason) => {
+    if (achievementMsgs?.length) {
+      await interaction
+        .followUp({ content: achievementMsgs.join("\n\n"), flags: 64 })
+        .catch(() => {});
+    }
+    try {
+      const msg = await interaction.fetchReply();
+      await msg.edit({ components: [] });
+    } catch {}
+  });
+}
+
 async function showCollection(interaction, target, user) {
   const ids = {
     left: `col-left-${interaction.id}`,
@@ -1389,14 +1674,38 @@ async function showCollection(interaction, target, user) {
     sortRarest: `col-rarest-${interaction.id}`,
     sortQuantity: `col-quant-${interaction.id}`,
     sortHighest: `col-highest-${interaction.id}`,
+    edFilter: `col-edfilter-${interaction.id}`,
+    favsOnly: `col-favsonly-${interaction.id}`,
   };
-  let state = { page: 0, sortBy: "chronological" };
+  const favourites = getFavouriteCards(interaction.user.id);
+  let state = {
+    page: 0,
+    sortBy: "chronological",
+    editionFilter: null,
+    showFavsOnly: false,
+  };
 
   function buildMessage() {
-    const cards = sortCollectionCards(
+    let cards = sortCollectionCards(
       getCollectionCardList(user, null),
       state.sortBy,
     );
+
+    // Edition filter
+    if (state.editionFilter) {
+      cards = cards.filter((c) => c.editions[state.editionFilter] > 0);
+    }
+    // Favourites only filter
+    if (state.showFavsOnly) {
+      const favSet = new Set(
+        favourites.map((f) => `${f.card_id}:${f.edition}`),
+      );
+      cards = cards.filter((c) => {
+        return Object.keys(c.editions).some((ed) =>
+          favSet.has(`${c.cardId}:${ed}`),
+        );
+      });
+    }
     const totalPages = Math.max(1, Math.ceil(cards.length / CARDS_PER_PAGE));
     state.page = Math.min(state.page, totalPages - 1);
     const pageCards = cards.slice(
@@ -1420,6 +1729,10 @@ async function showCollection(interaction, target, user) {
     };
     const sortLabel = sortLabels[state.sortBy] || state.sortBy;
 
+    const edFilterLabel = state.editionFilter
+      ? ` · Edition: ${getEditionName(state.editionFilter)}`
+      : "";
+
     const embed = new EmbedBuilder()
       .setColor(0x2b2d31)
       .setAuthor({
@@ -1428,7 +1741,7 @@ async function showCollection(interaction, target, user) {
       })
       .setDescription(buildCollectionGrid(pageCards))
       .setFooter({
-        text: `Page ${state.page + 1}/${totalPages} · ${cards.length} owned · ${totalUnique}/${totalAll} unique · ${sortLabel}`,
+        text: `Page ${state.page + 1}/${totalPages} · ${cards.length} owned · ${totalUnique}/${totalAll} unique · ${sortLabel}${edFilterLabel}`,
       });
 
     const pageRow = new ActionRowBuilder().addComponents(
@@ -1483,9 +1796,51 @@ async function showCollection(interaction, target, user) {
         .setDisabled(state.sortBy === "highest_edition"),
     );
 
+    const edOptions = [
+      new StringSelectMenuOptionBuilder()
+        .setLabel("All Editions")
+        .setValue("none")
+        .setDefault(!state.editionFilter),
+      ...Object.keys(allEditions).map((e) =>
+        new StringSelectMenuOptionBuilder()
+          .setLabel(getEditionName(e))
+          .setValue(e)
+          .setDefault(state.editionFilter === e),
+      ),
+    ];
+
+    const filterRow = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(ids.edFilter)
+        .setPlaceholder("Filter by edition")
+        .addOptions(edOptions),
+    );
+
+    const favsRow =
+      favourites.length > 0
+        ? new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId(ids.favsOnly)
+              .setLabel(
+                state.showFavsOnly
+                  ? "⭐ Showing Favourites"
+                  : "⭐ Favourites Only",
+              )
+              .setStyle(
+                state.showFavsOnly
+                  ? ButtonStyle.Success
+                  : ButtonStyle.Secondary,
+              ),
+          )
+        : null;
+
+    const rows = [pageRow, sortRow];
+    if (favsRow) rows.push(favsRow);
+    rows.push(filterRow);
+
     return {
       embeds: [embed],
-      components: [pageRow, sortRow],
+      components: rows,
       files: [],
       attachments: [],
     };
@@ -1521,6 +1876,14 @@ async function showCollection(interaction, target, user) {
       } else if (i.customId === ids.sortHighest) {
         state.sortBy = "highest_edition";
         state.page = 0;
+      } else if (i.customId === ids.edFilter) {
+        const val = i.values[0];
+        state.editionFilter = val === "none" ? null : val;
+        state.page = 0;
+      } else if (i.customId === ids.favsOnly) {
+        state.showFavsOnly = !state.showFavsOnly;
+        state.page = 0;
+        state.editionFilter = null;
       }
       await i.update(buildMessage());
     } catch (err) {
@@ -1558,8 +1921,10 @@ async function inspectCard(interaction) {
     return;
   }
 
+  const favourites = getFavouriteCards(interaction.user.id);
   const selIds = {
     select: `inspect-set-${interaction.id}`,
+    favs: `insp-favonly-${interaction.id}`,
   };
 
   function buildSetSelectionView() {
@@ -1570,6 +1935,18 @@ async function inspectCard(interaction) {
         return `${emoji} **${name}**`;
       })
       .join("\n");
+
+    const favOnlyRow =
+      favourites.length > 0
+        ? [
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(selIds.favs)
+                .setLabel(`⭐ Show Favourites Only (${favourites.length})`)
+                .setStyle(ButtonStyle.Primary),
+            ),
+          ]
+        : [];
 
     return {
       embeds: [
@@ -1591,6 +1968,7 @@ async function inspectCard(interaction) {
               })),
             ),
         ),
+        ...favOnlyRow,
       ],
     };
   }
@@ -1599,17 +1977,496 @@ async function inspectCard(interaction) {
     let inspectMsg = await interaction.editReply(buildSetSelectionView());
 
     while (true) {
-      // Step 1: Wait for set selection
+      // Step 1: Wait for set selection or favourites button
       const setSel = await inspectMsg
         .awaitMessageComponent({
           filter: (i) =>
-            i.user.id === interaction.user.id && i.customId === selIds.select,
+            i.user.id === interaction.user.id &&
+            (i.customId === selIds.select || i.customId === selIds.favs),
           time: 60000,
         })
         .catch(() => null);
       if (!setSel) {
         await interaction.editReply({ components: [] }).catch(() => {});
         return;
+      }
+
+      if (setSel.customId === selIds.favs) {
+        // Show favourites only mode - override set selection
+        await setSel.deferUpdate();
+        const favCards = [];
+        for (const f of favourites) {
+          for (const sid of Object.keys(setsConfig)) {
+            try {
+              const s = resolveSet(sid);
+              if (s.cards[f.card_id]) {
+                favCards.push({ ...f, setId: sid, card: s.cards[f.card_id] });
+                break;
+              }
+            } catch {}
+          }
+        }
+
+        if (!favCards.length) {
+          await interaction.editReply({
+            content: "No favourite cards found.",
+            components: [],
+          });
+          return;
+        }
+
+        const CARDS_PER_LIST_PAGE = 20;
+        const cardListIds = {
+          select: `pick-card-${interaction.id}`,
+          prev: `cl-prev-${interaction.id}`,
+          next: `cl-next-${interaction.id}`,
+          back: `cl-back-${interaction.id}`,
+        };
+        const inspectIds = {
+          rarity: `insp-r-${interaction.id}`,
+          back: `insp-b-${interaction.id}`,
+          prev: `insp-p-${interaction.id}`,
+          next: `insp-n-${interaction.id}`,
+          feat: `insp-f-${interaction.id}`,
+          fav: `insp-fav-${interaction.id}`,
+        };
+
+        function ownedEditionsForCard(cid) {
+          const card = favCards.find((f) => f.card_id === cid)?.card;
+          return card ? getOwnedEditions(user, cid, card) : [];
+        }
+
+        function buildFavCardListView(page) {
+          const totalListPages = Math.ceil(
+            favCards.length / CARDS_PER_LIST_PAGE,
+          );
+          const start = page * CARDS_PER_LIST_PAGE;
+          const pageFavs = favCards.slice(start, start + CARDS_PER_LIST_PAGE);
+          const lines = pageFavs.map((f) => {
+            const c = f.card;
+            const idx = getCardIndex(resolveSet(f.setId), f.card_id);
+            return `\`${idx}.\` **${c.name}** - ${getEditionName(f.edition)}`;
+          });
+          const desc =
+            totalListPages > 1
+              ? `${lines.join("\n")}\n\n*Page ${page + 1}/${totalListPages}*`
+              : lines.join("\n");
+
+          return {
+            embeds: [
+              new EmbedBuilder()
+                .setColor(0x2b2d31)
+                .setTitle("⭐ Favourite Cards")
+                .setDescription(desc),
+            ],
+            components: [
+              new ActionRowBuilder().addComponents(
+                new StringSelectMenuBuilder()
+                  .setCustomId(cardListIds.select)
+                  .setPlaceholder("Select a favourite card")
+                  .addOptions(
+                    pageFavs.map((f) =>
+                      new StringSelectMenuOptionBuilder()
+                        .setLabel(f.card.name)
+                        .setValue(f.card_id),
+                    ),
+                  ),
+              ),
+              new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                  .setCustomId(cardListIds.back)
+                  .setLabel("Back")
+                  .setStyle(ButtonStyle.Secondary),
+                ...(totalListPages > 1
+                  ? [
+                      new ButtonBuilder()
+                        .setCustomId(cardListIds.prev)
+                        .setLabel("←")
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(page <= 0),
+                      new ButtonBuilder()
+                        .setCustomId(cardListIds.next)
+                        .setLabel("→")
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(page >= totalListPages - 1),
+                    ]
+                  : []),
+              ),
+            ],
+          };
+        }
+
+        let currentFavIdx = 0;
+        let listPage = 0;
+        let selectedFavEdition = favCards[0]?.edition || null;
+
+        inspectMsg = await interaction.editReply(
+          buildFavCardListView(listPage),
+        );
+
+        let goBackToFavs = false;
+        while (!goBackToFavs) {
+          const sel = await inspectMsg
+            .awaitMessageComponent({
+              filter: (i) =>
+                i.user.id === interaction.user.id &&
+                (Object.values(cardListIds).includes(i.customId) ||
+                  Object.values(inspectIds).includes(i.customId)),
+              time: 5 * 60 * 1000,
+            })
+            .catch(() => null);
+          if (!sel) {
+            await interaction.editReply({ components: [] }).catch(() => {});
+            return;
+          }
+
+          if (sel.customId === cardListIds.back) {
+            inspectMsg = await interaction.editReply({
+              ...buildSetSelectionView(),
+              files: [],
+            });
+            goBackToFavs = true;
+            break;
+          }
+          if (sel.customId === cardListIds.prev) {
+            listPage--;
+            await sel.update(buildFavCardListView(listPage));
+            continue;
+          }
+          if (sel.customId === cardListIds.next) {
+            listPage++;
+            await sel.update(buildFavCardListView(listPage));
+            continue;
+          }
+          if (sel.customId === cardListIds.select) {
+            currentFavIdx = favCards.findIndex(
+              (f) => f.card_id === sel.values[0],
+            );
+            selectedFavEdition = favCards[currentFavIdx]?.edition || null;
+            await sel.deferUpdate();
+            await yieldLoop();
+            const cid = favCards[currentFavIdx].card_id;
+            const ed = selectedFavEdition;
+            const card = favCards[currentFavIdx].card;
+            const inspectObj = { id: cid, ...card, edition: ed };
+            const ownedEd = ownedEditionsForCard(cid);
+            const idx = currentFavIdx;
+
+            const cardView = {
+              ...(await buildCardMessage(
+                inspectObj,
+                resolveSet(favCards[currentFavIdx].setId),
+                favCards[currentFavIdx].setId,
+                user,
+                `insp-${cid}-${ed}`,
+              )),
+              components: [
+                buildRaritySelect(card, ed, inspectIds.rarity, ownedEd),
+                new ActionRowBuilder().addComponents(
+                  new ButtonBuilder()
+                    .setCustomId(inspectIds.back)
+                    .setLabel("Back")
+                    .setStyle(ButtonStyle.Secondary),
+                  new ButtonBuilder()
+                    .setCustomId(inspectIds.prev)
+                    .setLabel("←")
+                    .setStyle(ButtonStyle.Primary)
+                    .setDisabled(idx <= 0),
+                  new ButtonBuilder()
+                    .setCustomId(inspectIds.next)
+                    .setLabel("→")
+                    .setStyle(ButtonStyle.Primary)
+                    .setDisabled(idx >= favCards.length - 1),
+                  new ButtonBuilder()
+                    .setCustomId(inspectIds.feat)
+                    .setLabel("Set as Featured")
+                    .setStyle(ButtonStyle.Secondary),
+                  buildFavButton(
+                    inspectIds,
+                    interaction.user.id,
+                    favCards[currentFavIdx].card_id,
+                    selectedFavEdition,
+                  ),
+                ),
+              ],
+            };
+            inspectMsg = await interaction.editReply(cardView);
+
+            // Card inspection loop for favourites
+            while (true) {
+              const inspSel = await inspectMsg
+                .awaitMessageComponent({
+                  filter: (i) =>
+                    i.user.id === interaction.user.id &&
+                    Object.values(inspectIds).includes(i.customId),
+                  time: 5 * 60 * 1000,
+                })
+                .catch(() => null);
+              if (!inspSel) {
+                await interaction
+                  .editReply({ components: [], files: [] })
+                  .catch(() => {});
+                return;
+              }
+              if (inspSel.customId === inspectIds.back) {
+                listPage = 0;
+                await inspSel.update({
+                  ...buildFavCardListView(listPage),
+                  files: [],
+                });
+                break;
+              }
+              if (inspSel.customId === inspectIds.prev) {
+                currentFavIdx--;
+                selectedFavEdition = favCards[currentFavIdx]?.edition || null;
+                await inspSel.deferUpdate();
+                await yieldLoop();
+                const cid2 = favCards[currentFavIdx].card_id;
+                const ed2 = selectedFavEdition;
+                const card2 = favCards[currentFavIdx].card;
+                const inspectObj2 = { id: cid2, ...card2, edition: ed2 };
+                inspectMsg = await interaction.editReply({
+                  ...(await buildCardMessage(
+                    inspectObj2,
+                    resolveSet(favCards[currentFavIdx].setId),
+                    favCards[currentFavIdx].setId,
+                    user,
+                    `insp-${cid2}-${ed2}`,
+                  )),
+                  components: [
+                    buildRaritySelect(
+                      card2,
+                      ed2,
+                      inspectIds.rarity,
+                      ownedEditionsForCard(cid2),
+                    ),
+                    new ActionRowBuilder().addComponents(
+                      new ButtonBuilder()
+                        .setCustomId(inspectIds.back)
+                        .setLabel("Back")
+                        .setStyle(ButtonStyle.Secondary),
+                      new ButtonBuilder()
+                        .setCustomId(inspectIds.prev)
+                        .setLabel("←")
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(currentFavIdx <= 0),
+                      new ButtonBuilder()
+                        .setCustomId(inspectIds.next)
+                        .setLabel("→")
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(currentFavIdx >= favCards.length - 1),
+                      new ButtonBuilder()
+                        .setCustomId(inspectIds.feat)
+                        .setLabel("Set as Featured")
+                        .setStyle(ButtonStyle.Secondary),
+                      buildFavButton(
+                        inspectIds,
+                        interaction.user.id,
+                        favCards[currentFavIdx].card_id,
+                        selectedFavEdition,
+                      ),
+                    ),
+                  ],
+                });
+                continue;
+              }
+              if (inspSel.customId === inspectIds.next) {
+                currentFavIdx++;
+                selectedFavEdition = favCards[currentFavIdx]?.edition || null;
+                await inspSel.deferUpdate();
+                await yieldLoop();
+                const cid3 = favCards[currentFavIdx].card_id;
+                const ed3 = selectedFavEdition;
+                const card3 = favCards[currentFavIdx].card;
+                const inspectObj3 = { id: cid3, ...card3, edition: ed3 };
+                inspectMsg = await interaction.editReply({
+                  ...(await buildCardMessage(
+                    inspectObj3,
+                    resolveSet(favCards[currentFavIdx].setId),
+                    favCards[currentFavIdx].setId,
+                    user,
+                    `insp-${cid3}-${ed3}`,
+                  )),
+                  components: [
+                    buildRaritySelect(
+                      card3,
+                      ed3,
+                      inspectIds.rarity,
+                      ownedEditionsForCard(cid3),
+                    ),
+                    new ActionRowBuilder().addComponents(
+                      new ButtonBuilder()
+                        .setCustomId(inspectIds.back)
+                        .setLabel("Back")
+                        .setStyle(ButtonStyle.Secondary),
+                      new ButtonBuilder()
+                        .setCustomId(inspectIds.prev)
+                        .setLabel("←")
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(currentFavIdx <= 0),
+                      new ButtonBuilder()
+                        .setCustomId(inspectIds.next)
+                        .setLabel("→")
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(currentFavIdx >= favCards.length - 1),
+                      new ButtonBuilder()
+                        .setCustomId(inspectIds.feat)
+                        .setLabel("Set as Featured")
+                        .setStyle(ButtonStyle.Secondary),
+                      buildFavButton(
+                        inspectIds,
+                        interaction.user.id,
+                        favCards[currentFavIdx].card_id,
+                        selectedFavEdition,
+                      ),
+                    ),
+                  ],
+                });
+                continue;
+              }
+              if (inspSel.customId === inspectIds.rarity) {
+                selectedFavEdition = inspSel.values[0];
+                await inspSel.deferUpdate();
+                await yieldLoop();
+                const cid4 = favCards[currentFavIdx].card_id;
+                const ed4 = selectedFavEdition;
+                const card4 = favCards[currentFavIdx].card;
+                const inspectObj4 = { id: cid4, ...card4, edition: ed4 };
+                inspectMsg = await interaction.editReply({
+                  ...(await buildCardMessage(
+                    inspectObj4,
+                    resolveSet(favCards[currentFavIdx].setId),
+                    favCards[currentFavIdx].setId,
+                    user,
+                    `insp-${cid4}-${ed4}`,
+                  )),
+                  components: [
+                    buildRaritySelect(
+                      card4,
+                      ed4,
+                      inspectIds.rarity,
+                      ownedEditionsForCard(cid4),
+                    ),
+                    new ActionRowBuilder().addComponents(
+                      new ButtonBuilder()
+                        .setCustomId(inspectIds.back)
+                        .setLabel("Back")
+                        .setStyle(ButtonStyle.Secondary),
+                      new ButtonBuilder()
+                        .setCustomId(inspectIds.prev)
+                        .setLabel("←")
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(currentFavIdx <= 0),
+                      new ButtonBuilder()
+                        .setCustomId(inspectIds.next)
+                        .setLabel("→")
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(currentFavIdx >= favCards.length - 1),
+                      new ButtonBuilder()
+                        .setCustomId(inspectIds.feat)
+                        .setLabel("Set as Featured")
+                        .setStyle(ButtonStyle.Secondary),
+                      buildFavButton(
+                        inspectIds,
+                        interaction.user.id,
+                        favCards[currentFavIdx].card_id,
+                        selectedFavEdition,
+                      ),
+                    ),
+                  ],
+                });
+                continue;
+              }
+              if (inspSel.customId === inspectIds.feat) {
+                setFeaturedCard(
+                  interaction.user.id,
+                  favCards[currentFavIdx].setId,
+                  favCards[currentFavIdx].card_id,
+                  selectedFavEdition,
+                );
+                await inspSel.update({
+                  content: "Featured card updated!",
+                  embeds: [],
+                  components: [],
+                  files: [],
+                  flags: 64,
+                });
+                return;
+              }
+              if (inspSel.customId === inspectIds.fav) {
+                const result = toggleFavouriteCard(
+                  interaction.user.id,
+                  favCards[currentFavIdx].card_id,
+                  selectedFavEdition,
+                );
+                if (result.success) {
+                  await inspSel.deferUpdate();
+                  const refreshed = loadUser(interaction.user.id);
+                  user.collection = refreshed.collection;
+                  const cid = favCards[currentFavIdx].card_id;
+                  const ed = selectedFavEdition;
+                  const card = favCards[currentFavIdx].card;
+                  const inspectObj = { id: cid, ...card, edition: ed };
+                  const ownedEd = ownedEditionsForCard(cid);
+                  const idx = currentFavIdx;
+                  inspectMsg = await interaction.editReply({
+                    ...(await buildCardMessage(
+                      inspectObj,
+                      resolveSet(favCards[currentFavIdx].setId),
+                      favCards[currentFavIdx].setId,
+                      user,
+                      `insp-${cid}-${ed}`,
+                    )),
+                    components: [
+                      buildRaritySelect(card, ed, inspectIds.rarity, ownedEd),
+                      new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                          .setCustomId(inspectIds.back)
+                          .setLabel("Back")
+                          .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                          .setCustomId(inspectIds.prev)
+                          .setLabel("←")
+                          .setStyle(ButtonStyle.Primary)
+                          .setDisabled(idx <= 0),
+                        new ButtonBuilder()
+                          .setCustomId(inspectIds.next)
+                          .setLabel("→")
+                          .setStyle(ButtonStyle.Primary)
+                          .setDisabled(idx >= favCards.length - 1),
+                        new ButtonBuilder()
+                          .setCustomId(inspectIds.feat)
+                          .setLabel("Set as Featured")
+                          .setStyle(ButtonStyle.Secondary),
+                        buildFavButton(
+                          inspectIds,
+                          interaction.user.id,
+                          cid,
+                          ed,
+                        ),
+                      ),
+                    ],
+                  });
+                  await inspSel.followUp({
+                    content: result.favourited
+                      ? "Card favourited! ⭐"
+                      : "Card unfavourited.",
+                    flags: 64,
+                  });
+                } else if (result.reason === "max") {
+                  await inspSel.deferUpdate();
+                  await inspSel.followUp({
+                    content:
+                      "You can only have up to 10 favourite cards! Unfavourite one first.",
+                    flags: 64,
+                  });
+                }
+                continue;
+              }
+            }
+          }
+        }
+        continue;
       }
 
       const selectedSetId = setSel.values[0];
@@ -1639,6 +2496,7 @@ async function inspectCard(interaction) {
         prev: `insp-p-${interaction.id}`,
         next: `insp-n-${interaction.id}`,
         feat: `insp-f-${interaction.id}`,
+        fav: `insp-fav-${interaction.id}`,
       };
 
       function ownedEditionsForCard(cid) {
@@ -1683,7 +2541,7 @@ async function inspectCard(interaction) {
                 .addOptions(
                   pageCards.map((cid) =>
                     new StringSelectMenuOptionBuilder()
-                      .setLabel(set.cards[cid].name)
+                      .setLabel(set.cards[cid].name.length > 100 ? set.cards[cid].name.slice(0, 97) + "..." : set.cards[cid].name)
                       .setValue(cid),
                   ),
                 ),
@@ -1747,6 +2605,7 @@ async function inspectCard(interaction) {
                 .setCustomId(inspectIds.feat)
                 .setLabel("Set as Featured")
                 .setStyle(ButtonStyle.Secondary),
+              buildFavButton(inspectIds, interaction.user.id, cid, ed),
             ),
           ],
         };
@@ -1883,6 +2742,38 @@ async function inspectCard(interaction) {
               });
               return;
             }
+            if (inspSel.customId === inspectIds.fav) {
+              const result = toggleFavouriteCard(
+                interaction.user.id,
+                ownedCardIds[currentCardIdx],
+                selectedEdition,
+              );
+              if (result.success) {
+                await inspSel.deferUpdate();
+                const refreshed = loadUser(interaction.user.id);
+                user.collection = refreshed.collection;
+                const newFavs = getFavouriteCards(interaction.user.id);
+                const cardView = await buildCardViewPage(
+                  ownedCardIds[currentCardIdx],
+                  selectedEdition,
+                );
+                inspectMsg = await interaction.editReply(cardView);
+                await inspSel.followUp({
+                  content: result.favourited
+                    ? "Card favourited! ⭐"
+                    : "Card unfavourited.",
+                  flags: 64,
+                });
+              } else if (result.reason === "max") {
+                await inspSel.deferUpdate();
+                await inspSel.followUp({
+                  content:
+                    "You can only have up to 10 favourite cards! Unfavourite one first.",
+                  flags: 64,
+                });
+              }
+              continue;
+            }
           }
         }
       }
@@ -1908,9 +2799,12 @@ async function showSet(interaction, setId, target, user) {
     left: `set-left-${interaction.id}`,
     right: `set-right-${interaction.id}`,
     achievements: `ach-${interaction.id}`,
+    edFilter: `set-edfilter-${interaction.id}`,
+    edClear: `set-edclear-${interaction.id}`,
   };
   let page = 0;
   let showingAchievements = false;
+  let editionFilter = null;
 
   function buildAchievementsEmbed() {
     const setTitles = setsConfig[setId]?.titles || [];
@@ -1947,17 +2841,41 @@ async function showSet(interaction, setId, target, user) {
   }
 
   function buildPage(pageIndex) {
+    // Apply edition filter
+    let filteredCards = allCards;
+    if (editionFilter) {
+      filteredCards = allCards.filter(([cardId]) => {
+        const owned = user.collection?.[cardId];
+        return owned && owned[editionFilter] > 0;
+      });
+    }
+
+    const totalFilteredPages = Math.ceil(
+      filteredCards.length / CARDS_PER_SET_PAGE,
+    );
+    const effectivePage = Math.min(
+      pageIndex,
+      Math.max(0, totalFilteredPages - 1),
+    );
+
     const stats = getCompletionStats(user, set);
-    const start = pageIndex * CARDS_PER_SET_PAGE;
-    const chunk = allCards.slice(start, start + CARDS_PER_SET_PAGE);
+    const start = effectivePage * CARDS_PER_SET_PAGE;
+    const chunk = filteredCards.slice(start, start + CARDS_PER_SET_PAGE);
 
     const lines = chunk.map(([cardId, card]) => {
       const owned = user.collection?.[cardId];
-      const ownedEditions = owned
-        ? Object.keys(owned).map(getEditionName).join(", ")
-        : "";
+      const nonTimeyOwned = owned
+        ? Object.keys(owned).filter((ed) => ed !== "timey_wimey")
+        : [];
+      const timeyOnly =
+        owned && nonTimeyOwned.length === 0 && owned.timey_wimey > 0;
+      const ownedEditions = nonTimeyOwned.length
+        ? nonTimeyOwned.map(getEditionName).join(", ")
+        : timeyOnly
+          ? "Timey Wimey only (doesn't count)"
+          : "";
       const allOwned = ownsAllEditions(user, cardId, card);
-      const status = owned
+      const status = nonTimeyOwned.length
         ? allOwned
           ? `⭐ ${ownedEditions}`
           : `✅ ${ownedEditions}`
@@ -1965,11 +2883,15 @@ async function showSet(interaction, setId, target, user) {
       return `\`${getCardIndex(set, cardId)}.\` **${card.name}** - ${titleCase(card.rarity)}\n${status}`;
     });
 
+    const edFilterLabel = editionFilter
+      ? ` · Filter: ${getEditionName(editionFilter)}`
+      : "";
+
     const embed = new EmbedBuilder()
       .setTitle(`${getSetName(setId, set)} - Full Set`)
       .setDescription(lines.join("\n"))
       .setFooter({
-        text: `${stats.owned}/${stats.total} owned - Page ${pageIndex + 1}/${totalPages}`,
+        text: `${stats.owned}/${stats.total} owned - Page ${effectivePage + 1}/${totalFilteredPages}${edFilterLabel}`,
       });
 
     const navRow = new ActionRowBuilder().addComponents(
@@ -1977,12 +2899,12 @@ async function showSet(interaction, setId, target, user) {
         .setCustomId(ids.left)
         .setLabel("←")
         .setStyle(ButtonStyle.Primary)
-        .setDisabled(pageIndex === 0),
+        .setDisabled(effectivePage === 0),
       new ButtonBuilder()
         .setCustomId(ids.right)
         .setLabel("→")
         .setStyle(ButtonStyle.Primary)
-        .setDisabled(pageIndex >= totalPages - 1),
+        .setDisabled(effectivePage >= totalFilteredPages - 1),
     );
 
     const achRow = new ActionRowBuilder().addComponents(
@@ -1992,9 +2914,34 @@ async function showSet(interaction, setId, target, user) {
         .setStyle(ButtonStyle.Secondary),
     );
 
+    const edOptions = [
+      new StringSelectMenuOptionBuilder()
+        .setLabel("All Editions")
+        .setValue("none")
+        .setDefault(!editionFilter),
+      ...Object.keys(allEditions).map((e) =>
+        new StringSelectMenuOptionBuilder()
+          .setLabel(getEditionName(e))
+          .setValue(e)
+          .setDefault(editionFilter === e),
+      ),
+    ];
+
+    const filterRow = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(ids.edFilter)
+        .setPlaceholder("Filter by edition")
+        .addOptions(edOptions),
+    );
+
+    const components =
+      totalFilteredPages > 1
+        ? [navRow, achRow, filterRow]
+        : [achRow, filterRow];
+
     return {
       embeds: [embed],
-      components: totalPages > 1 ? [navRow, achRow] : [achRow],
+      components,
     };
   }
 
@@ -2032,10 +2979,15 @@ function handleSetCollector(
         page = Math.max(0, page - 1);
         await i.update(buildPage(page));
       } else if (i.customId === ids.right) {
-        page = Math.min(totalPages - 1, page + 1);
+        page++;
         await i.update(buildPage(page));
       } else if (i.customId === ids.achievements) {
         await i.reply({ ...buildAchievementsEmbed(), flags: 64 });
+      } else if (i.customId === ids.edFilter) {
+        const val = i.values[0];
+        editionFilter = val === "none" ? null : val;
+        page = 0;
+        await i.update(buildPage(page));
       }
     } catch (err) {
       console.error("Set update failed:", err);
@@ -2056,6 +3008,13 @@ function handleSetCollector(
 // === TRADING SYSTEM ===
 
 const activeTrades = new Map();
+
+function isUserInAnyTrade(userId) {
+  for (const trade of activeTrades.values()) {
+    if (trade.initiatorId === userId || trade.targetId === userId) return true;
+  }
+  return false;
+}
 
 function getTradeId(a, b) {
   return [a, b].sort().join(":");
@@ -2080,13 +3039,13 @@ function getRemainingOfferableCardsGrouped(user, offeredCards) {
     offeredCounts[key] = (offeredCounts[key] || 0) + 1;
   }
 
-  const cardMap = new Map();
+  const cardList = [];
   for (const [cardId, editions] of Object.entries(user.collection || {})) {
     const availableEditions = [];
     for (const [edition, count] of Object.entries(editions)) {
       const key = `${cardId}:${edition}`;
       const remaining = count - (offeredCounts[key] || 0);
-      if (remaining > 0) availableEditions.push(edition);
+      if (remaining > 0) availableEditions.push({ edition, count: remaining });
     }
     if (!availableEditions.length) continue;
 
@@ -2096,10 +3055,17 @@ function getRemainingOfferableCardsGrouped(user, offeredCards) {
     const set = resolveSet(setId);
     const card = set.cards[cardId];
     if (card) {
-      cardMap.set(cardId, { cardId, card, setId, editions: availableEditions });
+      cardList.push({ cardId, card, setId, editions: availableEditions });
     }
   }
-  return [...cardMap.values()];
+
+  // Sort chronologically by card ID
+  cardList.sort((a, b) => {
+    if (a.setId !== b.setId) return a.setId.localeCompare(b.setId);
+    return a.cardId.localeCompare(b.cardId);
+  });
+
+  return cardList;
 }
 
 function getOfferedCardCounts(offeredCards) {
@@ -2209,10 +3175,12 @@ function buildCardPickerMessage(userId, tradeId, page) {
   const safeId = tradeId.replace(/[^a-z0-9]/gi, "_");
 
   const options = pageItems.map((item) => {
-    const editionInfo =
-      item.editions.length > 1
-        ? `${item.editions.length} editions`
-        : getEditionName(item.editions[0]);
+    const editionInfo = item.editions
+      .map(
+        (e) =>
+          `${EDITION_ABBR[e.edition] || e.edition.charAt(0).toUpperCase()}${e.count}`,
+      )
+      .join(" ");
     return new StringSelectMenuOptionBuilder()
       .setLabel(`${item.card.name} (${editionInfo})`)
       .setDescription(
@@ -2226,12 +3194,16 @@ function buildCardPickerMessage(userId, tradeId, page) {
   const nextId = `trade-next-${safeId}`;
   const doneId = `trade-done-${safeId}`;
 
+  const embed = new EmbedBuilder()
+    .setColor(0x2b2d31)
+    .setTitle("Add Cards to Trade")
+    .setDescription(
+      `Available cards: **${available.length}**  •  Offered: **${offered.length}**  •  ${totalPages > 1 ? `Page ${page + 1}/${totalPages}` : ""}`,
+    );
+
   return {
-    content:
-      totalPages > 1
-        ? `**Select a card to add** - Page ${page + 1}/${totalPages}`
-        : "**Select a card to add:**",
-    embeds: [],
+    content: "**Select a card to add:**",
+    embeds: [embed],
     components: [
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
@@ -2269,13 +3241,18 @@ function buildEditionPickerMessage(userId, tradeId, cardId, editions) {
     if (card) cardName = card.name;
   }
 
+  // Get count of each edition
+  const user = loadUser(userId);
+  const ownedEditions = user.collection?.[cardId] || {};
+
   const safeId = tradeId.replace(/[^a-z0-9]/gi, "_");
 
-  const options = editions.map((ed) =>
-    new StringSelectMenuOptionBuilder()
-      .setLabel(getEditionName(ed))
-      .setValue(`${cardId}:${ed}`),
-  );
+  const options = editions.map((ed) => {
+    const count = ownedEditions[ed] || 0;
+    return new StringSelectMenuOptionBuilder()
+      .setLabel(`${getEditionName(ed)} (${count} owned)`)
+      .setValue(`${cardId}:${ed}`);
+  });
 
   const selectId = `trade-ed-select-${safeId}`;
   const backId = `trade-ed-back-${safeId}`;
@@ -2403,6 +3380,22 @@ async function handleTrade(interaction) {
   if (activeTrades.has(tradeId)) {
     await interaction.reply({
       content: "A trade is already in progress between you two.",
+      flags: 64,
+    });
+    return;
+  }
+
+  if (isUserInAnyTrade(interaction.user.id)) {
+    await interaction.reply({
+      content:
+        "You are already in an active trade. Complete or cancel that one first.",
+      flags: 64,
+    });
+    return;
+  }
+  if (isUserInAnyTrade(target.id)) {
+    await interaction.reply({
+      content: "That user is already in an active trade. Try again later.",
       flags: 64,
     });
     return;
@@ -2869,6 +3862,7 @@ async function handleTrade(interaction) {
 }
 
 module.exports = {
+  buildCardMessage,
   checkAndAwardTitles,
   resolveSet,
   getSetName,
@@ -2876,6 +3870,7 @@ module.exports = {
   getCardAllowedEditions,
   titleCase,
   getPackName,
+  buildSummaryMessage,
 
   data: new SlashCommandBuilder()
     .setName("cards")
@@ -2983,6 +3978,11 @@ module.exports = {
               { name: "Other", value: "other" },
             ),
         ),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("settings")
+        .setDescription("Change your card system settings."),
     ),
 
   async autocomplete(interaction) {
@@ -3023,6 +4023,7 @@ module.exports = {
               "`/cards profile` - View and customise your card profile!\n" +
               "`/cards trade` - Trade cards with another user\n" +
               "`/cards request` - Request a card to be added in the next set!\n",
+            "`/cards settings` - Adjust your user settings\n",
           );
         await interaction.reply({ embeds: [embed], flags: 64 });
         return;
@@ -3073,16 +4074,59 @@ module.exports = {
         const latestSet = ownedSetIds[0];
         const hasStandardPack =
           userData.packs[latestSet]?.["standard_pack"] > 0;
+        const stdPackCount = userData.packs[latestSet]?.["standard_pack"] || 0;
+        let bulkSet = null;
+        let bulkSetName = null;
+        for (const sid of ownedSetIds) {
+          const count = userData.packs[sid]?.["standard_pack"] || 0;
+          if (count >= 10) {
+            bulkSet = sid;
+            bulkSetName = setsConfig[sid]?.name || sid;
+            break;
+          }
+        }
+        // Find legacy pack across all sets
+        let legacyPackSet = null;
+        let legacyPackCount = 0;
+        for (const sid of ownedSetIds) {
+          for (const [pt, ct] of Object.entries(userData.packs[sid] || {})) {
+            if (packsConfig[pt]?.legacy) {
+              legacyPackSet = sid;
+              legacyPackCount += ct;
+            }
+          }
+        }
         if (hasStandardPack) {
           const setName = setsConfig[latestSet]?.name || latestSet;
-          components.push(
+          const componentsArr = [
             new ActionRowBuilder().addComponents(
               new ButtonBuilder()
                 .setCustomId(quickOpenId)
                 .setLabel(
-                  `${packsConfig["standard_pack"]?.emoji || "🎒"} Quick Open: Standard Pack (${setName})`,
+                  `${packsConfig["standard_pack"]?.emoji || "🎒"} Open Standard Pack (${setName})`,
                 )
                 .setStyle(ButtonStyle.Success),
+            ),
+          ];
+          if (bulkSet) {
+            componentsArr.push(
+              new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                  .setCustomId(`open10-${interaction.id}`)
+                  .setLabel(`🎒 Open 10 Standard Packs (${bulkSetName})`)
+                  .setStyle(ButtonStyle.Danger),
+              ),
+            );
+          }
+          components.push(...componentsArr);
+        }
+        if (legacyPackSet) {
+          components.push(
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`legacyopen-${interaction.id}`)
+                .setLabel(`⏳ Open Legacy Pack (${legacyPackCount})`)
+                .setStyle(ButtonStyle.Primary),
             ),
           );
         }
@@ -3096,18 +4140,23 @@ module.exports = {
           ),
         );
 
+        const open10Id = `open10-${interaction.id}`;
         const setMsg = await interaction.editReply({
           embeds: [setEmbed],
           components,
         });
         let targetSetId;
         let targetPackType = null;
+        let bulkOpenCount = 0;
         try {
+          const legacyOpenId = `legacyopen-${interaction.id}`;
           const setSelection = await setMsg.awaitMessageComponent({
             filter: (i) =>
               i.user.id === interaction.user.id &&
               (i.customId === setIdPicker ||
                 i.customId === quickOpenId ||
+                i.customId === open10Id ||
+                i.customId === legacyOpenId ||
                 i.customId === cancelId),
             time: 60000,
           });
@@ -3119,9 +4168,20 @@ module.exports = {
             });
             return;
           }
-          if (setSelection.customId === quickOpenId) {
+          if (setSelection.customId === open10Id) {
+            targetSetId = bulkSet;
+            targetPackType = "standard_pack";
+            bulkOpenCount = 10;
+            await setSelection.deferUpdate();
+          } else if (setSelection.customId === quickOpenId) {
             targetSetId = latestSet;
             targetPackType = "standard_pack";
+            await setSelection.deferUpdate();
+          } else if (setSelection.customId === legacyOpenId) {
+            targetSetId = legacyPackSet;
+            targetPackType =
+              Object.keys(packsConfig).find((pt) => packsConfig[pt]?.legacy) ||
+              "legacy_pack";
             await setSelection.deferUpdate();
           } else {
             targetSetId = setSelection.values[0];
@@ -3150,6 +4210,7 @@ module.exports = {
 
           const packOptions = ownedTypes
             .filter((pt) => {
+              if (packsConfig[pt]?.legacy) return false;
               const restriction = packsConfig[pt]?.set_restriction;
               return !restriction || restriction.includes(targetSetId);
             })
@@ -3219,12 +4280,22 @@ module.exports = {
           });
           return;
         }
-        await openPackAndShow(interaction, {
-          setId: targetSetId,
-          packType: targetPackType,
-          set: targetSet,
-          pack: targetPack,
-        });
+        if (bulkOpenCount > 0) {
+          await openMultiplePacksAndShow(interaction, {
+            setId: targetSetId,
+            packType: targetPackType,
+            set: targetSet,
+            pack: targetPack,
+            count: bulkOpenCount,
+          });
+        } else {
+          await openPackAndShow(interaction, {
+            setId: targetSetId,
+            packType: targetPackType,
+            set: targetSet,
+            pack: targetPack,
+          });
+        }
         return;
       }
 
@@ -3380,7 +4451,7 @@ module.exports = {
         if (type === "self") {
           await interaction.deferReply({ flags: 64 });
           const channel = interaction.client.channels.cache.get(
-            "1513291690352443423",
+            "1522270484685783212",
           );
           const avatarUrl = interaction.user.displayAvatarURL({
             size: 512,
@@ -3449,7 +4520,7 @@ module.exports = {
 
             const value = submitted.fields.getTextInputValue("request_input");
             const chId =
-              type === "wiki" ? "1513291883311534211" : "1513295251681316924";
+              type === "wiki" ? "1522270314912808980" : "1522270371942760679";
             const channel = interaction.client.channels.cache.get(chId);
             if (channel) {
               await channel.send({
@@ -3472,6 +4543,243 @@ module.exports = {
             }
           }
         }
+        return;
+      }
+
+      if (subcommand === "settings") {
+        const user = loadUser(interaction.user.id);
+        if (!user.settings)
+          user.settings = {
+            skip_pack_images: false,
+            disable_star_badge: false,
+            auto_open_packs: false,
+            disable_reactions: false,
+            disable_participation_role: false,
+          };
+
+        const member = await interaction.guild?.members
+          .fetch(interaction.user.id)
+          .catch(() => null);
+
+        // Find earned completion roles across all seasons
+        const completedRoles = [];
+        try {
+          const seasonsDir = path.join(
+            __dirname,
+            "../../battlePass/data/seasons",
+          );
+          if (fs.existsSync(seasonsDir)) {
+            const seasonFiles = fs
+              .readdirSync(seasonsDir)
+              .filter((f) => f.endsWith(".json") && f !== "404.json")
+              .sort();
+            const bpUser = loadBpUser(interaction.user.id);
+            for (const file of seasonFiles) {
+              const seasonId = file.replace(".json", "");
+              const season = loadSeason(seasonId);
+              if (!season) continue;
+              for (const [lvl, reward] of Object.entries(
+                season.alternate_rewards || {},
+              )) {
+                if (reward.type === "role") {
+                  const userSeason = bpUser?.seasons?.[seasonId];
+                  const earned = userSeason && userSeason.level >= 100;
+                  const hasRole = member?.roles?.cache?.has(reward.role_id);
+                  completedRoles.push({
+                    seasonId,
+                    seasonName: season.name,
+                    roleId: reward.role_id,
+                    earned,
+                    hasRole,
+                  });
+                  break;
+                }
+              }
+            }
+          }
+        } catch {}
+
+        function buildSettingsDesc(u) {
+          let d =
+            `**Skip Pack Images:** ${u.settings.skip_pack_images ? "✅ Enabled" : "❌ Disabled"}\n_Opening a pack skips straight to the summary._\n\n` +
+            `**Completion Star Badges:** ${u.settings.disable_star_badge ? "❌ Disabled" : "✅ Enabled"}\n_Shows the ⭐ badge on completed cards._\n\n` +
+            `**Auto-Open Packs:** ${u.settings.auto_open_packs ? "✅ Enabled" : "❌ Disabled"}\n_Opens standard packs automatically as you receive them. Some rewards are excluded. (Skips straight to summary)_\n\n` +
+            `**Reaction Notifications:** ${u.settings.disable_reactions ? "❌ Disabled" : "✅ Enabled"}\n_Reacts to your message with ✉️ or other emojis when you receive rewards._\n\n` +
+            `**Display Participation Role:** ${u.settings.disable_participation_role ? "❌ Disabled" : "✅ Enabled"}\n_Toggles whether or not the participation role for the current season is displayed on your profile._`;
+
+          const earned = completedRoles.filter((cr) => cr.earned);
+          if (earned.length > 0) {
+            d += "\n\n**Completed Seasons:**";
+            for (const cr of earned) {
+              d += `\n${cr.hasRole ? "✅" : "❌"} ${cr.seasonName} Completion Role`;
+            }
+          }
+          return d;
+        }
+
+        function buildSettingsComponents(u) {
+          const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId("settings-toggle-skip")
+              .setLabel(
+                u.settings.skip_pack_images
+                  ? "Disable Skip Images"
+                  : "Enable Skip Images",
+              )
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId("settings-toggle-star")
+              .setLabel(
+                u.settings.disable_star_badge
+                  ? "Enable Star Badge"
+                  : "Disable Star Badge",
+              )
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId("settings-toggle-autoopen")
+              .setLabel(
+                u.settings.auto_open_packs
+                  ? "Disable Auto-Open"
+                  : "Enable Auto-Open",
+              )
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId("settings-toggle-reactions")
+              .setLabel(
+                u.settings.disable_reactions
+                  ? "Enable Reactions"
+                  : "Disable Reactions",
+              )
+              .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+              .setCustomId("settings-toggle-participation")
+              .setLabel(
+                u.settings.disable_participation_role
+                  ? "Enable Participation Role"
+                  : "Disable Participation Role",
+              )
+              .setStyle(ButtonStyle.Secondary),
+          );
+
+          const comps = [row];
+
+          const earned = completedRoles.filter((cr) => cr.earned);
+          if (earned.length > 0) {
+            const selectRow = new ActionRowBuilder().addComponents(
+              new StringSelectMenuBuilder()
+                .setCustomId("settings-role-select")
+                .setPlaceholder("Toggle a completion role...")
+                .addOptions(
+                  earned.map((cr) =>
+                    new StringSelectMenuOptionBuilder()
+                      .setLabel(
+                        `${cr.seasonName} (${cr.hasRole ? "✅ Shown" : "❌ Hidden"})`,
+                      )
+                      .setValue(cr.seasonId)
+                      .setDescription(
+                        cr.hasRole
+                          ? "Click to remove this role from your profile"
+                          : "Click to add this role to your profile",
+                      ),
+                  ),
+                ),
+            );
+            comps.push(selectRow);
+          }
+
+          return comps;
+        }
+
+        const embed = new EmbedBuilder()
+          .setColor(0x2b2d31)
+          .setTitle("⚙️ Card Settings")
+          .setDescription(buildSettingsDesc(user));
+
+        await interaction.reply({
+          embeds: [embed],
+          components: buildSettingsComponents(user),
+          flags: 64,
+        });
+
+        const msg = await interaction.fetchReply();
+        const collector = msg.createMessageComponentCollector({
+          filter: (i) => i.user.id === interaction.user.id,
+          time: 60000,
+        });
+
+        collector.on("collect", async (i) => {
+          const u = loadUser(interaction.user.id);
+          if (!u.settings)
+            u.settings = {
+              skip_pack_images: false,
+              disable_star_badge: false,
+              auto_open_packs: false,
+              disable_reactions: false,
+              disable_participation_role: false,
+            };
+
+          if (i.customId === "settings-toggle-skip") {
+            u.settings.skip_pack_images = !u.settings.skip_pack_images;
+          } else if (i.customId === "settings-toggle-star") {
+            u.settings.disable_star_badge = !u.settings.disable_star_badge;
+          } else if (i.customId === "settings-toggle-autoopen") {
+            u.settings.auto_open_packs = !u.settings.auto_open_packs;
+          } else if (i.customId === "settings-toggle-reactions") {
+            u.settings.disable_reactions = !u.settings.disable_reactions;
+          } else if (i.customId === "settings-toggle-participation") {
+            u.settings.disable_participation_role =
+              !u.settings.disable_participation_role;
+            const season = getCurrentSeason();
+            if (season?.participation_role_id && member) {
+              if (u.settings.disable_participation_role) {
+                try {
+                  await member.roles.remove(season.participation_role_id);
+                } catch {}
+              } else {
+                const seasonId = getLatestSeasonId();
+                const bpUser = loadBpUser(interaction.user.id);
+                if (bpUser?.seasons?.[seasonId]) {
+                  try {
+                    await member.roles.add(season.participation_role_id);
+                  } catch {}
+                }
+              }
+            }
+          } else if (i.customId === "settings-role-select") {
+            const seasonId = i.values[0];
+            const cr = completedRoles.find((c) => c.seasonId === seasonId);
+            if (cr && member) {
+              if (cr.hasRole) {
+                try {
+                  await member.roles.remove(cr.roleId);
+                  cr.hasRole = false;
+                } catch {}
+              } else {
+                try {
+                  await member.roles.add(cr.roleId);
+                  cr.hasRole = true;
+                } catch {}
+              }
+            }
+          }
+          saveUser(u);
+
+          await i.update({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(0x2b2d31)
+                .setTitle("⚙️ Card Settings")
+                .setDescription(buildSettingsDesc(u)),
+            ],
+            components: buildSettingsComponents(u),
+          });
+        });
+
+        collector.on("end", async () => {
+          try {
+            await msg.edit({ components: [] });
+          } catch {}
+        });
         return;
       }
 

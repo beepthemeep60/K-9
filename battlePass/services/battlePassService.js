@@ -54,6 +54,7 @@ function getSeasonData(user, seasonId) {
       last_message_date: null,
       last_xp_time: null,
       claimed_levels: [],
+      xp_today: 0,
     };
   }
   return user.seasons[seasonId];

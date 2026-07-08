@@ -17,7 +17,7 @@ const {
   getTotalXpForLevel,
 } = require("../../battlePass/services/battlePassService");
 
-const { addPack } = require("../../tradingCards/services/userService");
+const { loadUser: loadCardUser, addPack } = require("../../tradingCards/services/userService");
 const fs = require("fs");
 
 function getMultipliers(member, dailyStreak) {
@@ -43,10 +43,44 @@ function getMultipliers(member, dailyStreak) {
   const boosterPct = 50;
   const punchPct = 25;
   const roulettePct = (rouletteScore * 2.5).toFixed(1);
-  const dailyPct = ((dailyStreak || 0) * 1).toFixed(1);
+  const dailyPct = ((dailyStreak || 0) * 2.5).toFixed(1);
 
   const lines = [];
+
+  // Check for global double XP (displayed at the top)
+  try {
+    const doubleXpPath = require("path").join(
+      __dirname,
+      "../../battlePass/data/doubleXp.json",
+    );
+    if (require("fs").existsSync(doubleXpPath)) {
+      const doubleXpData = JSON.parse(
+        require("fs").readFileSync(doubleXpPath, "utf8"),
+      );
+      if (doubleXpData.enabled) {
+        lines.push("🌟 **GLOBAL DOUBLE XP ACTIVE!** 🌟");
+      }
+    }
+  } catch {}
+
   lines.push(`${hasBooster ? "✅" : "❌"} Server booster: +${boosterPct}%`);
+
+  // Event winner role - 4x boost
+  let hasEventWinnerRole = false;
+  try {
+    const ewRolePath = require("path").join(
+      __dirname,
+      "../../battlePass/data/eventWinnerRoles.json",
+    );
+    if (require("fs").existsSync(ewRolePath)) {
+      const ewRoles = JSON.parse(require("fs").readFileSync(ewRolePath, "utf8"));
+      if (Array.isArray(ewRoles) && ewRoles.length > 0) {
+        hasEventWinnerRole = ewRoles.some(roleId => member?.roles?.cache?.has(roleId));
+      }
+    }
+  } catch {}
+  if (hasEventWinnerRole) lines.push("✅ Event Winner: +300%");
+
   lines.push(
     `${punchScore >= 3000 ? "✅" : "❌"} /punch completed: +${punchPct}%`,
   );
@@ -111,11 +145,7 @@ function buildLevelEmbed(seasonData, season, member) {
   const embed = new EmbedBuilder()
     .setColor(0x2b2d31)
     .setTitle(`🎖️ ${season.name}`)
-    .setDescription(
-      level >= 100
-        ? "🎉 **Max Level!**"
-        : `Level **${level}** → **${level + 1}**`,
-    )
+    .setDescription(level >= 100 ? "🎉 **Max Level!**" : `Level **${level}**`)
     .addFields(
       {
         name: "XP",
@@ -190,7 +220,7 @@ module.exports = {
           if (!userData) {
             userData = createUser(interaction.user.id);
           }
-          const seasonData = getSeasonData(userData, seasonId);
+          getSeasonData(userData, seasonId);
 
           const seasonSetId = getLatestSeasonId();
           if (seasonSetId) {
@@ -200,10 +230,15 @@ module.exports = {
           }
 
           if (member && season.participation_role_id) {
-            try {
-              await member.roles.add(season.participation_role_id);
-            } catch {}
+            const cardUser = loadCardUser(interaction.user.id);
+            if (!cardUser?.settings?.disable_participation_role) {
+              try {
+                await member.roles.add(season.participation_role_id);
+              } catch {}
+            }
           }
+
+          saveUser(userData);
 
           await i.update({
             content: `You've entered **${season.name}**! You'll level up as you chat!\n\nRun this command again any time to see your current level and active multipliers!`,
@@ -237,6 +272,7 @@ module.exports = {
     // Sync daily streak as if they messaged
     const today = new Date().toISOString().split("T")[0];
     if (seasonData.last_message_date !== today) {
+      seasonData.xp_today = 0;
       if (seasonData.last_message_date) {
         const last = new Date(seasonData.last_message_date);
         const diff = Math.floor((Date.now() - last.getTime()) / 86400000);
@@ -287,8 +323,8 @@ module.exports = {
             `**🎖️ Server booster** - Boost the server for a +50% xp boost!\n\n` +
             `**🥊 /punch completed** - Use the /punch command 3000 times to unlock a permanent +25% xp boost!\n\n` +
             `**🎰 /roulette streak** - Play the roulette minigame against other players! Each point is a +2.5% xp boost!\n\n` +
-            `**📅 Daily login** - Send at least 1 message in the server to add +1% to this each day! You will lose 1% for every day you miss.\n\n` +
-            `-# Note: You can only earn XP once per minute`,
+            `**📅 Daily login** - Send at least 1 message in the server to add +2.5% to this each day! You will lose 2.5% for every day you miss.\n\n` +
+            `-# Note: You can only earn XP once per minute. XP gain is capped at 3 levels per day.`,
           flags: 64,
         });
       }

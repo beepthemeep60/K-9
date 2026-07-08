@@ -17,6 +17,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const { setTemporaryNickname } = require("./nicknameManager");
+const logger = require("./logger");
 
 dotenv.config();
 //sets prefix and context
@@ -73,7 +74,7 @@ async function reader() {
       if (!c) {
         channel = lastChannel;
         c = client.channels.cache.get(channel);
-        console.log("\x1b[31minvalid channel id\x1b[0m");
+        logger.warn("invalid channel id");
         console.log(`\n#${c.name}`);
       } else {
         console.log(`\n#${c.name}`);
@@ -88,10 +89,7 @@ async function reader() {
 function safeReply(message, reply) {
   openai.createModeration({ input: reply }).then(async (res) => {
     if (res.data.results[0].flagged) {
-      safeReply(
-        message,
-        "My response was moderated. (This is an error, not an AI response)",
-      );
+      safeReply(message, "My response was moderated. [ERROR]");
       try {
         client.channels.cache
           .get("1018511988478967969")
@@ -130,23 +128,24 @@ async function getGptResponse(prompt, model) {
       return reply;
     } else {
       const newReply =
-        "This message could mass ping users, and has been blocked. (This is an error, not an AI response)";
+        "This message could mass ping users, and has been blocked. [ERROR]";
       return newReply;
     }
   } else {
-    return "Input unknown. Please try again. (This is an error, not an AI response)\nIf this keeps happening, please report the issue on the [support page](https://k-9.vercel.app/Support.html)";
+    return "Input unknown. Please try again. [ERROR]\nIf this keeps happening, please report the issue on the [support page](https://k-9.vercel.app/Support.html)";
   }
 }
 // when the client is ready and logged into the discord bot, log in the console.
 client.on("ready", async () => {
-  console.log("Logged in as " + client.user.username);
+  logger.info("Logged in as " + client.user.username);
+  logger.info("Bot started at " + new Date().toISOString());
   reader();
 
   // Set the presence outside the callback function
   client.user.setPresence({
     activities: [
       {
-        name: "Never fucking knowing the answer when it's important",
+        name: "Try /battlepass!",
         type: ActivityType.Watching,
       },
     ],
@@ -206,9 +205,12 @@ client.on("ready", async () => {
         await channel.send(
           `I think <t:${predictedTime}:D> will be an interesting day for <@${lastMessage.author.id}>.`,
         );
+        await client.channels.cache
+          .get("915568009815416845")
+          .send(`Prophecy sent to <#${channel}>`);
       }
     } catch (error) {
-      console.error("Failed to fetch messages:", error);
+      logger.error("Failed to fetch messages:", error);
     }
   }
 
@@ -222,54 +224,108 @@ client.on("ready", async () => {
     ) {
       await sendPredictionMessage();
     }
-    if (day === 0) {
-      // sunday
-      if (now.getHours() === 23 && now.getMinutes() === 59) {
-        try {
-          const dumpChannel = await client.channels.fetch(
-            "1511503399705776229",
-          );
+    if (now.getHours() === 18 && now.getMinutes() === 0) {
+      try {
+        const dumpChannel = await client.channels.fetch("1511503399705776229");
 
-          // check channel exists and is text channel
-          if (dumpChannel && dumpChannel.isTextBased()) {
-            const threadName = now.toLocaleDateString("en-GB");
-            // create thread
-            const thread = await dumpChannel.threads.create({
-              name: threadName,
-              autoArchiveDuration: 1440,
-              reason: "Weekly file dump",
+        if (dumpChannel && dumpChannel.isTextBased()) {
+          const threadName = now.toLocaleDateString("en-GB");
+          const thread = await dumpChannel.threads.create({
+            name: threadName,
+            autoArchiveDuration: 1440,
+            reason: "Daily file dump",
+          });
+
+          const { execSync } = require("child_process");
+          const { join: pJoin } = require("path");
+          const tmpDir = pJoin(__dirname, "tmp_dump");
+          if (!require("fs").existsSync(tmpDir))
+            require("fs").mkdirSync(tmpDir);
+
+          const tcZip = pJoin(tmpDir, "tradingCards_users.zip");
+          const bpZip = pJoin(tmpDir, "battlePass_users.zip");
+          const tcDir = pJoin(__dirname, "tradingCards/data/users");
+          const bpDir = pJoin(__dirname, "battlePass/data/users");
+          const logDir = pJoin(__dirname, "logs");
+
+          try {
+            execSync(`zip -j "${tcZip}" "${tcDir}"/*.json`, {
+              stdio: "pipe",
+              timeout: 30000,
             });
-
-            // send file in thread
-            const { execSync } = require("child_process");
-            const tmpDir = require("path").join(__dirname, "tmp_dump");
-            if (!require("fs").existsSync(tmpDir)) require("fs").mkdirSync(tmpDir);
-
-            execSync(`zip -j "${tmpDir}/tradingCards_users.zip" tradingCards/data/users/*`);
-            execSync(`zip -j "${tmpDir}/battlePass_users.zip" battlePass/data/users/*`);
-
-            const files = [
-              new AttachmentBuilder("punch.txt"),
-              new AttachmentBuilder("roulette.txt"),
-              new AttachmentBuilder("pets.txt"),
-              new AttachmentBuilder("warns.txt"),
-              new AttachmentBuilder("snowmen.txt"),
-              new AttachmentBuilder(path.join(tmpDir, "tradingCards_users.zip")),
-              new AttachmentBuilder(path.join(tmpDir, "battlePass_users.zip")),
-            ];
-
-            await thread.send({
-              content: "Weekly file dump:",
-              files,
-            });
-
+          } catch {
             try {
-              require("fs").rmSync(tmpDir, { recursive: true, force: true });
+              execSync(
+                `tar -czf "${tcZip}" -C "${pJoin(__dirname, "tradingCards/data")}" users`,
+                { stdio: "pipe", timeout: 30000 },
+              );
             } catch {}
           }
-        } catch (error) {
-          console.error("Error creating thread in channel:", error);
+          try {
+            execSync(`zip -j "${bpZip}" "${bpDir}"/*.json`, {
+              stdio: "pipe",
+              timeout: 30000,
+            });
+          } catch {
+            try {
+              execSync(
+                `tar -czf "${bpZip}" -C "${pJoin(__dirname, "battlePass/data")}" users`,
+                { stdio: "pipe", timeout: 30000 },
+              );
+            } catch {}
+          }
+          const files = [
+            new AttachmentBuilder(pJoin(__dirname, "punch.txt")),
+            new AttachmentBuilder(pJoin(__dirname, "roulette.txt")),
+            new AttachmentBuilder(pJoin(__dirname, "pets.txt")),
+            new AttachmentBuilder(pJoin(__dirname, "warns.txt")),
+          ];
+
+          if (require("fs").existsSync(tcZip))
+            files.push(new AttachmentBuilder(tcZip));
+          if (require("fs").existsSync(bpZip))
+            files.push(new AttachmentBuilder(bpZip));
+
+          await thread.send({
+            content: "Daily file dump:",
+            files,
+          });
+
+          // Send log files as a second message (no zip complexity)
+          if (require("fs").existsSync(logDir)) {
+            try {
+              const logFiles = require("fs")
+                .readdirSync(logDir)
+                .filter((f) => f.endsWith(".log"));
+              if (logFiles.length > 0) {
+                const logAttachments = [];
+                for (const f of logFiles) {
+                  logAttachments.push(
+                    new AttachmentBuilder(
+                      require("fs").readFileSync(pJoin(logDir, f)),
+                      { name: f },
+                    ),
+                  );
+                }
+                await thread.send({ files: logAttachments });
+              }
+            } catch {}
+          }
+
+          try {
+            require("fs").rmSync(tmpDir, { recursive: true, force: true });
+          } catch {}
+          if (require("fs").existsSync(logDir)) {
+            try {
+              const logFiles = require("fs").readdirSync(logDir);
+              for (const f of logFiles) {
+                require("fs").rmSync(pJoin(logDir, f), { force: true });
+              }
+            } catch {}
+          }
         }
+      } catch (error) {
+        logger.error("Error creating thread in channel:", error);
       }
     }
   }, 60 * 1000); // check every minute
@@ -289,13 +345,13 @@ client.on("ready", async () => {
 
 //crash prevention
 process.on("unhandledRejection", async (reason, promise) => {
-  console.log("Unhandled Rejection at:", promise, "reason", reason);
+  logger.error("Unhandled Rejection at:", promise, "reason", reason);
 });
 process.on("uncaughtException", (err) => {
-  console.log("Uncaught Exception:", err);
+  logger.error("Uncaught Exception:", err);
 });
 process.on("uncaughtExceptionMonitor", (err, origin) => {
-  console.log("Uncaught Exception Monitor", err, origin);
+  logger.error("Uncaught Exception Monitor", err, origin);
 });
 //when a member joins, send them a DM
 client.on("guildMemberAdd", async (member) => {
@@ -466,6 +522,22 @@ client.on("messageCreate", async function (message) {
       }
     }
   }
+  // DM users pinged by user 1275761767464570894 in the trading channel
+  if (
+    message.channel.id === "1018307730404024350" &&
+    message.author.id === "437808476106784770" &&
+    message.mentions.users.size > 0
+  ) {
+    for (const [_, user] of message.mentions.users) {
+      if (user.bot) continue;
+      user
+        .send(
+          "You've gained image perms!\n\n-# Did you know you can run `/battlepass` to level up and gain trading card packs?",
+        )
+        .catch(() => {});
+    }
+  }
+
   // Battle Pass XP tracking
   if (!message.author.bot) {
     try {
@@ -490,7 +562,10 @@ client.on("messageCreate", async function (message) {
 
           const today = new Date().toISOString().split("T")[0];
           let dailyStreak = seasonData.daily_streak || 0;
+          let isNewDay = false;
           if (seasonData.last_message_date !== today) {
+            isNewDay = true;
+            seasonData.xp_today = 0; // Reset daily XP cap
             if (seasonData.last_message_date) {
               const last = new Date(seasonData.last_message_date);
               const diff = Math.floor((Date.now() - last.getTime()) / 86400000);
@@ -501,6 +576,62 @@ client.on("messageCreate", async function (message) {
             }
             seasonData.last_message_date = today;
             seasonData.daily_streak = dailyStreak;
+
+            // First message each day: grant 1 standard pack from current set
+            const seasonSetId = season.reward_set || getLatestSeasonId();
+            if (seasonSetId) {
+              try {
+                const {
+                  addPack: addDailyPack,
+                  loadUser: loadTcUser,
+                } = require("./tradingCards/services/userService");
+                const {
+                  autoOpenPack,
+                } = require("./tradingCards/services/packService");
+                addDailyPack(
+                  message.author.id,
+                  seasonSetId,
+                  "standard_pack",
+                  1,
+                );
+                const tcUser = loadTcUser(message.author.id);
+                if (!tcUser?.settings?.disable_reactions) {
+                  await message.react("✉️");
+                }
+                // Auto-open if setting enabled (standard packs only)
+                if (tcUser?.settings?.auto_open_packs) {
+                  const results = autoOpenPack(
+                    message.author.id,
+                    seasonSetId,
+                    "standard_pack",
+                    1,
+                  );
+                  if (results) {
+                    try {
+                      const {
+                        buildSummaryMessage,
+                      } = require("./commands/Games/tradingCards");
+                      const set = require(
+                        `./tradingCards/data/sets/${seasonSetId}.json`,
+                      );
+                      const msg = buildSummaryMessage(
+                        results[0],
+                        set,
+                        seasonSetId,
+                        tcUser,
+                        "standard_pack",
+                      );
+                      const autoChannel = await client.channels.fetch(
+                        "1513525706129277030",
+                      );
+                      autoChannel
+                        .send({ content: `<@${message.author.id}>`, ...msg })
+                        .catch(() => {});
+                    } catch {}
+                  }
+                }
+              } catch {}
+            }
           }
 
           const now = Date.now();
@@ -529,12 +660,48 @@ client.on("messageCreate", async function (message) {
               if (rouletteLine)
                 mult += parseInt(rouletteLine.split(",")[1], 10) * 0.025;
             } catch {}
-            mult += (dailyStreak || 0) * 0.01;
+            mult += (dailyStreak || 0) * 0.025;
+
+            // Event winner role - 4x boost
+            try {
+              const ewRolePath = path.join(__dirname, "battlePass/data/eventWinnerRoles.json");
+              if (fs.existsSync(ewRolePath)) {
+                const ewRoles = JSON.parse(fs.readFileSync(ewRolePath, "utf8"));
+                if (Array.isArray(ewRoles) && ewRoles.length > 0 &&
+                    ewRoles.some(roleId => member?.roles?.cache?.has(roleId))) {
+                  mult += 3;
+                }
+              }
+            } catch {}
+
+            // Global double XP boost
+            try {
+              const globalDoubleXpPath = require("path").join(
+                __dirname,
+                "battlePass/data/doubleXp.json",
+              );
+              if (require("fs").existsSync(globalDoubleXpPath)) {
+                const doubleXpData = JSON.parse(
+                  require("fs").readFileSync(globalDoubleXpPath, "utf8"),
+                );
+                if (doubleXpData.enabled) {
+                  mult *= 2;
+                }
+              }
+            } catch {}
 
             const xpGained = Math.round(10 * mult);
 
+            // Cap daily XP gain at 3 levels worth
+            const xpPerLevel = season.xp_per_level || 100;
+            const dailyXpCap = xpPerLevel * 3;
+            const xpToday = seasonData.xp_today || 0;
+            const remainingCap = Math.max(0, dailyXpCap - xpToday);
+            const cappedXp = Math.min(xpGained, remainingCap);
+
             const oldLevel = seasonData.level;
-            seasonData.xp = (seasonData.xp || 0) + xpGained;
+            seasonData.xp = (seasonData.xp || 0) + cappedXp;
+            seasonData.xp_today = (seasonData.xp_today || 0) + cappedXp;
 
             const newLevel = getLevelFromXp(seasonData.xp, season);
             if (newLevel > oldLevel) {
@@ -544,9 +711,11 @@ client.on("messageCreate", async function (message) {
                 season,
               );
               for (const lvl of crossedLevels) {
-                const reward =
-                  season.alternate_rewards?.[String(lvl)] ||
-                  season.default_reward;
+                const isDefaultReward =
+                  !season.alternate_rewards?.[String(lvl)];
+                const reward = isDefaultReward
+                  ? season.default_reward
+                  : season.alternate_rewards[String(lvl)];
                 const emoji = reward.emoji || "✉️";
                 const amount = reward.amount || 1;
 
@@ -557,6 +726,53 @@ client.on("messageCreate", async function (message) {
                     reward.pack_type,
                     amount,
                   );
+
+                  // Auto-open only for default rewards with standard packs
+                  if (isDefaultReward && reward.pack_type === "standard_pack") {
+                    try {
+                      const {
+                        loadUser: loadTcUser,
+                      } = require("./tradingCards/services/userService");
+                      const {
+                        autoOpenPack,
+                      } = require("./tradingCards/services/packService");
+                      const tcUser = loadTcUser(message.author.id);
+                      if (tcUser?.settings?.auto_open_packs) {
+                        const results = autoOpenPack(
+                          message.author.id,
+                          reward.set,
+                          reward.pack_type,
+                          amount,
+                        );
+                        if (results) {
+                          try {
+                            const {
+                              buildSummaryMessage,
+                            } = require("./commands/Games/tradingCards");
+                            const set = require(
+                              `./tradingCards/data/sets/${reward.set}.json`,
+                            );
+                            const msg = buildSummaryMessage(
+                              results[0],
+                              set,
+                              reward.set,
+                              tcUser,
+                              reward.pack_type,
+                            );
+                            const autoChannel = await client.channels.fetch(
+                              "1513525706129277030",
+                            );
+                            autoChannel
+                              .send({
+                                content: `<@${message.author.id}>`,
+                                ...msg,
+                              })
+                              .catch(() => {});
+                          } catch {}
+                        }
+                      }
+                    } catch {}
+                  }
                 } else if (reward.type === "role" && message.member) {
                   try {
                     await message.member.roles.add(reward.role_id);
@@ -564,13 +780,22 @@ client.on("messageCreate", async function (message) {
                 }
 
                 try {
-                  await message.react(emoji);
+                  const tcUser2 =
+                    require("./tradingCards/services/userService").loadUser(
+                      message.author.id,
+                    );
+                  if (!tcUser2.settings?.disable_reactions) {
+                    await message.react(emoji);
+                  }
                 } catch {}
               }
 
               seasonData.level = newLevel;
               if (!seasonData.claimed_levels) seasonData.claimed_levels = [];
               seasonData.claimed_levels.push(...crossedLevels);
+            } else if (newLevel < oldLevel) {
+              // Correct inflated level (e.g. after xp_per_level change)
+              seasonData.level = newLevel;
             }
           }
 
@@ -578,7 +803,7 @@ client.on("messageCreate", async function (message) {
         }
       }
     } catch (e) {
-      console.error("BP XP error:", e);
+      logger.error("BP XP error:", e);
     }
   }
   if (message.content.toLowerCase().includes("grok")) {
@@ -663,7 +888,7 @@ client.on("messageCreate", async function (message) {
               `Hi ${newNickname}! I'm K-9! User identification protocols updated.`,
             );
           } catch (error) {
-            console.error("Failed to update nickname:", error);
+            logger.error("Failed to update nickname:", error);
           }
         }
       }
@@ -763,7 +988,7 @@ client.on("messageCreate", async function (message) {
       if (res.data.results[0].flagged) {
         safeReply(
           message,
-          "Your message has been moderated. Please refrain from trying to generate the following content: hate, self-harm, sexual, violence. (This is an error, not an AI response)",
+          "**Your** message has been blocked, please rephrase and try again. [ERROR]",
         );
       }
       //if nothing is flagged, set the model and send the message to the AI
@@ -800,8 +1025,8 @@ for (const folder of commandFolders) {
     if ("data" in command && "execute" in command) {
       client.commands.set(command.data.name, command);
     } else {
-      console.log(
-        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`,
+      logger.warn(
+        `The command at ${filePath} is missing a required "data" or "execute" property.`,
       );
     }
   }
@@ -816,7 +1041,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     try {
       return await command.autocomplete(interaction);
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       return;
     }
   }
@@ -829,7 +1054,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     try {
       return await command.execute(interaction);
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       if (interaction.replied || interaction.deferred) {
         return interaction.followUp({
           content: "There was an error executing this command.",
@@ -850,7 +1075,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       try {
         await command.interactionCreate(interaction);
       } catch (err) {
-        console.error(err);
+        logger.error(err);
       }
     }
   }

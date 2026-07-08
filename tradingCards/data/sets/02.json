@@ -1,0 +1,806 @@
+{
+  "set_id": "02",
+  "set_name": "Electric Boogaloo",
+  "cards": {
+    "02001": {
+      "name": "Charles II of England",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "MY NAME IS\nMY NAME IS\nMY NAME IS\nCHARLES THE SECOND🗣️🗣️🗣️",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02001.jpg"
+    },
+    "02002": {
+      "name": "Horrible Histories",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "William, William, Henry, Stephen\nHenry, Richard, John, oi!\nHenry, Ed, Ed, Ed, Rich two\nThen three more Henrys join our song\nEdward, Edward, Rich the third\nHenry, Henry, Ed again\nMary one, good Queen Bess\nJimmy, Charles and Charles and then\nJim, Will, Mary, Anna Gloria\nGeorge, George, George, George\nWill, Victoria\nEdward, George, Edward, George six\nAnd Queen Liz two completes the mix",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02002.png"
+    },
+    "02003": {
+      "name": "Tonsil",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Show of hands, who still has theirs?",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02003.jpg"
+    },
+    "02004": {
+      "name": "Rodent",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "I could swear we have this one already, didn't we call it <@672972385862942747>?",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02004.jpg"
+    },
+    "02005": {
+      "name": "Transgender",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Autobots waged their battle to destroy the evil forces of the Decepticons!",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02005.png"
+    },
+    "02006": {
+      "name": "Tuberculosis",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Rest in piece my Morgan he got hit by a bazooka",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02006.jpg"
+    },
+    "02007": {
+      "name": "Deodorant",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "ALL OF YOU NEED THIS.",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02007.jpg"
+    },
+    "02008": {
+      "name": "George Orwell",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Do it to Beep! Do it to Beep! Not me! Beep! I don't care what you do to him. Tear his face off, strip him to the bones. Not me! Beep! Not me!",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02008.jpg"
+    },
+    "02009": {
+      "name": "Spam (food)",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Now's your chance to be a [WRONG CARD]",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02009.jpg"
+    },
+    "02010": {
+      "name": "September 11 attacks",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "My bad, guys.",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02010.jpg"
+    },
+    "02011": {
+      "name": "Astrophysics",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "This card awesome, statement!",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02011.jpg"
+    },
+    "02012": {
+      "name": "Aberdeen",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "This isnt Croyden",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02012.jpg"
+    },
+    "02013": {
+      "name": "Israel",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "About time we got a card for the U.S.A.",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02013.png"
+    },
+    "02014": {
+      "name": "University of Southampton",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Look I'm gonna level with you here. It's me, CT, I'm writing this one. I don't know what the fuck this is and I don't feel like looking it up to think of anything funny to write.",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02014.png"
+    },
+    "02015": {
+      "name": "Great tit",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Stop. You're not funny.",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02015.jpg"
+    },
+    "02016": {
+      "name": "Henry Hoover",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "My man!",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02016.jpg"
+    },
+    "02017": {
+      "name": "Haru Urara",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Me if I was a horse",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02017.jpg"
+    },
+    "02018": {
+      "name": "Oestrogen",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Made up fake chemical. Women aren't real.",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02018.png"
+    },
+    "02019": {
+      "name": "Testosterone",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Say it like a pasta",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02019.png"
+    },
+    "02020": {
+      "name": "Red squirrel",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Evil Francis?",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02020.jpg"
+    },
+    "02021": {
+      "name": "Mao Zedong",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "我们是丹尼尔·米普！我们传递着火焰！",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02021.jpg"
+    },
+    "02022": {
+      "name": "European shag",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Also knows as the 'common shag'",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02022.jpg"
+    },
+    "02023": {
+      "name": "Battenberg cake",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Yummy",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02023.jpg"
+    },
+    "02024": {
+      "name": "Pig War (1859)",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "A Minecraft Movie (2025)",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02024.webp"
+    },
+    "02025": {
+      "name": "Star Trek",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "American Doctor Who",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02025.webp"
+    },
+    "02026": {
+      "name": "Chris Rock–Will Smith slapping incident",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "There is only 1 hour of oxygen left on the oceangate submarine",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02026.jpg"
+    },
+    "02027": {
+      "name": "Hexagon",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "\"I’ve genuinely always looked down on you. Do you remember that day I told you to kill yourself? I wasn’t joking.\n\nI know most thought I was but if Tallyman got banned for saying that I think I should’ve also. I despise you. I hate you with everything I am. I have never found you funny or cute, or relatable. I find you disgusting. You annoy the hell out of me. You might think you’re cool with your ragebait but I think you’re lame.\n\nIf you died I wouldn’t care. I wouldn’t cry. I would smile. Your life on this earth is a waste of oxygen.\n\nI have always been smarter than you. I am better than you. I actually take the time to make sure my messages aren’t filled with typos and are in proper grammar. Your messages aren’t in English they are barely legible. Common sense could hit you right in the face and you still would have no clue what it is.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02027.png"
+    },
+    "02028": {
+      "name": "Talisman",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "\"fucking ban me lol, i had it with you fuckers, all you do is fucking complain and diddle yourselves\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02028.jpg"
+    },
+    "02029": {
+      "name": "Mercury",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "I see a little silhouetto of a man",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02029.jpg"
+    },
+    "02030": {
+      "name": "Venus",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "I find it very hard to believe fly traps are from here",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02030.jpg"
+    },
+    "02031": {
+      "name": "Earth",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "<#1018199943774732410>",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02031.jpg"
+    },
+    "02032": {
+      "name": "Mars",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Oh man, look at those cavemen go",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02032.png"
+    },
+    "02033": {
+      "name": "Jupiter",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Owning this card makes you stupider",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02033.png"
+    },
+    "02034": {
+      "name": "Saturn",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Objectively the best planet",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02034.jpg"
+    },
+    "02035": {
+      "name": "Uranus",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "haha",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02035.png"
+    },
+    "02036": {
+      "name": "Neptune",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "BALD! BALD! BALD! BALD! BALD!",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02036.png"
+    },
+    "02037": {
+      "name": "Pluto",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "NOT a planet, sorry",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02037.png"
+    },
+    "02038": {
+      "name": "Nurse shark",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02038.jpg"
+    },
+    "02039": {
+      "name": "Stomiidae",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02039.jpg"
+    },
+    "02040": {
+      "name": "Lemon",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "UNACCEPTABLE",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02040.jpg"
+    },
+    "02041": {
+      "name": "Final Fantasy XIV",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Doordash has your back",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02041.jpg"
+    },
+    "02042": {
+      "name": "Rock Lobster",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02042.jpg"
+    },
+    "02043": {
+      "name": "Variety (magazine)",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02043.jpg"
+    },
+    "02044": {
+      "name": "Norwegian butter crisis",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "I'd have a crisis too I get it",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02044.jpg"
+    },
+    "02045": {
+      "name": "Aluminium",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Yes there's a second i",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02045.jpg"
+    },
+    "02046": {
+      "name": "Australian meat substitution scandal",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Season 2's horse meat scandal",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02046.png"
+    },
+    "02047": {
+      "name": "Crysis",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02047.jpg"
+    },
+    "02048": {
+      "name": "Pastry War",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Greggs vs Pret",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02048.jpg"
+    },
+    "02049": {
+      "name": "My Little Pony",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02049.webp"
+    },
+    "02050": {
+      "name": "Computer programming",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "How about a shower instead",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02050.jpg"
+    },
+    "02051": {
+      "name": "Pou (video game)",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02051.webp"
+    },
+    "02052": {
+      "name": "Paneer",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02052.jpg"
+    },
+    "02053": {
+      "name": "Indigestion",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02053.png"
+    },
+    "02054": {
+      "name": "General Butt Naked",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02054.webp"
+    },
+    "02055": {
+      "name": "Gaviscon",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02055.jpg"
+    },
+    "02056": {
+      "name": "Madagascar (2005 film)",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02056.jpg"
+    },
+    "02057": {
+      "name": "Binley Mega Chippy",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "What an era",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02057.jpg"
+    },
+    "02058": {
+      "name": "Tenor (website)",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "rip",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02058.png"
+    },
+    "02059": {
+      "name": "Israel Epstein",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Sorry for doxxing you <@672972385862942747>",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02059.jpg"
+    },
+    "02060": {
+      "name": "Kai Owen",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "RHYS TORCHWOOD YAYYYY",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02060.jpg"
+    },
+    "02061": {
+      "name": "James Marriott",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "MY GOAT",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02061.jpg"
+    },
+    "02062": {
+      "name": "Cow tools",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02062.png"
+    },
+    "02063": {
+      "name": "List of milk processing companies in Uganda",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Informative",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02063.png"
+    },
+    "02064": {
+      "name": "Halo (franchise)",
+      "type": "Wikipedia Article",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Bigoted Gamer Doctor Who",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02064.webp"
+    },
+    "02065": {
+      "name": "Ally",
+      "type": "Server Member",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02065.png"
+    },
+    "02066": {
+      "name": "Hymn",
+      "type": "Server Member",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02066.png"
+    },
+    "02067": {
+      "name": "Deinobi",
+      "type": "Server Member",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02067.png"
+    },
+    "02068": {
+      "name": "Wasp",
+      "type": "Server Wasp",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "𓆤",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02068.png"
+    },
+    "02069": {
+      "name": "Beep",
+      "type": "Server Member",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02069.png"
+    },
+    "02070": {
+      "name": "Dean",
+      "type": "Server Member",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02070.png"
+    },
+    "02071": {
+      "name": "Hideo Kojima",
+      "type": "Hideo Kojima",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Hideo Kojima",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02071.webp"
+    },
+    "02072": {
+      "name": "Creeper",
+      "type": "Fictional Character",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "I'm a creeper, Minecraft's grim reaper",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02072.webp"
+    },
+    "02073": {
+      "name": "Rocky",
+      "type": "Fictional Character",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Amaze amaze amaze",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02073.webp"
+    },
+    "02074": {
+      "name": "Wingull",
+      "type": "Fictional Character",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Tuff",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02074.jpg"
+    },
+    "02075": {
+      "name": "Minions",
+      "type": "Fictional Characters",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Bello",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02075.webp"
+    },
+    "02076": {
+      "name": "Bigger on the Inside",
+      "type": "Discord Server",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "This place sucks",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02076.png"
+    },
+    "02077": {
+      "name": "Owen Harper",
+      "type": "Fictional Character",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Post this capuchin when they least expect it",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02077.jpg"
+    },
+    "02078": {
+      "name": "Francis’s great great great great great great great great great great great great great great great great great great great great nan",
+      "type": "I still don't even know",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Fuck off",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02078.jpg"
+    },
+    "02079": {
+      "name": "Optimus Prime",
+      "type": "Fictional Character",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "The guy from fortnite",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02079.jpg"
+    },
+    "02080": {
+      "name": "Flowery",
+      "type": "Your Dad's Best Friend",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Sorry to keep you waiting!",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02080.png"
+    },
+    "02081": {
+      "name": "Wheatley",
+      "type": "Fictional Character",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Fatty. Adopted fatty. Fatty fatty no parents.",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02081.webp"
+    },
+    "02082": {
+      "name": "Twilight Sparkle",
+      "type": "Fictional Character",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Somehow not from fortnite (yet)",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02082.png"
+    },
+    "02083": {
+      "name": "Ultraman",
+      "type": "Server Fictional Character",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Why does Ultraman, the largest toku hero, not simply eat the other ones? Is he stupid?",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02083.jpg"
+    },
+    "02084": {
+      "name": "Adric",
+      "type": "Fictional Character",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "This boy has only 17 hours to live",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02084.jpg"
+    },
+    "02085": {
+      "name": "Basil & Noodle",
+      "type": "BOTI Pet",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Pets of <@394153008054796299>",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02085.png"
+    },
+    "02086": {
+      "name": "Merida",
+      "type": "BOTI Pet",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Pet of <@872527063901413446>",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02086.png"
+    },
+    "02087": {
+      "name": "Orion",
+      "type": "BOTI Pet",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Pet of <@1343491574008516638>",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02087.png"
+    },
+    "02088": {
+      "name": "Socks",
+      "type": "BOTI Pet",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Pet of <@962074550143713310>",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02088.png"
+    },
+    "02089": {
+      "name": "Jupiter",
+      "type": "BOTI Pet",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Pet of <@324094854571229204>",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02089.png"
+    },
+    "02090": {
+      "name": "Smudge",
+      "type": "BOTI Pet",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Pet of <@853254205216784424>",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02090.png"
+    },
+    "02091": {
+      "name": "Gunther & Lucy",
+      "type": "BOTI Pet",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Pets of <@672972385862942747>",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02091.png"
+    },
+    "02092": {
+      "name": "Posie",
+      "type": "BOTI Pet",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Pet of <@1037466389163814932>",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02092.png"
+    },
+    "02093": {
+      "name": "Bailey & Johann",
+      "type": "BOTI Pet",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Pets of <@580871073495646238> and <@1207121633848852481>",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02093.png"
+    },
+    "02094": {
+      "name": "Tilly",
+      "type": "BOTI Pet",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "Pet of <@721612920781406258>",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02094.png"
+    },
+    "02095": {
+      "name": "AAAA",
+      "type": "Iconic",
+      "rarity": "epic",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "<:AAAA:1245467749866541106>",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02095.webp"
+    },
+    "02096": {
+      "name": "Clara feet",
+      "type": "Iconic",
+      "rarity": "epic",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "<@1133563561042530435> requested this card personally",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02096.webp"
+    },
+    "02097": {
+      "name": "Wordle",
+      "type": "Iconic",
+      "rarity": "epic",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "REFS!!!",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02097.webp"
+    },
+    "02098": {
+      "name": "OG K-9",
+      "type": "Iconic",
+      "rarity": "epic",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "The original, you might say",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02098.png"
+    },
+    "02099": {
+      "name": "True",
+      "type": "Iconic",
+      "rarity": "epic",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "<:True:1253870607398080535>",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02099.png"
+    },
+    "02100": {
+      "name": "Farm Merge Valley",
+      "type": "Featured Card",
+      "rarity": "legendary",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "description": "I'm merging it so good",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/02100.jpg"
+    }
+  }
+}

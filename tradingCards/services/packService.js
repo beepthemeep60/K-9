@@ -1,3 +1,7 @@
+const fs = require("fs");
+const path = require("path");
+const setsConfig = require("../data/config/sets.json");
+
 const RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary"];
 const EDITION_ORDER = ["basic", "foil", "gold", "unpleasant", "rainbow"];
 
@@ -29,6 +33,10 @@ function rollEdition(editionTable) {
   return weightedPick(editionTable);
 }
 
+function loadSet(setId) {
+  return require(path.join(__dirname, "../data/sets", `${setId}.json`));
+}
+
 function openPack(
   set,
   packsConfig,
@@ -47,14 +55,33 @@ function openPack(
           id: cardId,
           ...card,
           pulled_tier: card.rarity,
-          edition: "basic",
+          edition: packConfig.forced_edition || "basic",
         });
       }
     }
     return results;
   }
 
-  const cards = Object.entries(set.cards);
+  // Legacy packs: draw from all sets except the current/latest
+  let allCards = [];
+  if (packConfig.legacy) {
+    const setIds = Object.keys(setsConfig);
+    const currentSet = setIds[setIds.length - 1];
+    for (const sid of setIds) {
+      if (sid === currentSet) continue;
+      try {
+        const s = loadSet(sid);
+        for (const [cid, card] of Object.entries(s.cards)) {
+          allCards.push({ id: cid, card, setId: sid });
+        }
+      } catch {}
+    }
+  } else {
+    allCards = Object.entries(set.cards).map(([id, card]) => ({ id, card, setId: null }));
+  }
+
+  if (!allCards.length) return results;
+
   const guaranteedMin = packConfig.guaranteed_min_rarity || null;
   const guaranteedMinEdition = packConfig.guaranteed_min_edition || null;
 
@@ -79,11 +106,24 @@ function openPack(
     }
     let tier = weightedPick(tierTable);
 
-    let pool = cards.filter(([_, card]) => card.rarity === tier);
-    if (!pool.length) pool = cards;
+    let pool = allCards.filter((entry) => entry.card.rarity === tier);
+    if (!pool.length) pool = allCards;
     if (!pool.length) continue;
 
-    const [cardId, card] = pool[Math.floor(Math.random() * pool.length)];
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+    const cardId = picked.id;
+    const card = picked.card;
+
+    // If forced edition, skip edition rolling
+    if (packConfig.forced_edition) {
+      results.push({
+        id: cardId,
+        ...card,
+        pulled_tier: tier,
+        edition: packConfig.forced_edition,
+      });
+      continue;
+    }
 
     const allEditions = { ...editionTable, ...eventEditionTable };
     let effectiveEditions =
@@ -130,9 +170,38 @@ function openPack(
   return results;
 }
 
+function autoOpenPack(userId, setId, packType, amount = 1) {
+  const fs = require("fs");
+  const p = require("path");
+  const setsConfig = require(p.join(__dirname, "../data/config/sets.json"));
+  const packsConfig = require(p.join(__dirname, "../data/config/packs.json"));
+  const editionTable = require(p.join(__dirname, "../data/config/editions.json"));
+  const eventEditionTable = require(p.join(__dirname, "../data/config/event_editions.json"));
+
+  const { loadUser, saveUser, addCards, removePack } = require("./userService");
+
+  const set = loadSet(setId);
+  const pack = packsConfig[packType];
+  if (!set || !pack) return null;
+
+  const totalRemoved = [];
+  for (let i = 0; i < amount; i++) {
+    const removed = removePack(userId, setId, packType, 1);
+    if (!removed) break;
+    const cards = openPack(set, packsConfig, editionTable, eventEditionTable, pack.cards_per_pack || 5, pack);
+    if (cards.length) {
+      addCards(userId, cards);
+      totalRemoved.push(cards);
+    }
+  }
+
+  return totalRemoved.length ? totalRemoved : null;
+}
+
 module.exports = {
   weightedPick,
   getCardsByRarity,
   rollEdition,
   openPack,
+  autoOpenPack,
 };
