@@ -782,7 +782,7 @@ function ownsAllEditions(user, cardId, card) {
   return allowed.every((ed) => (owned[ed] || 0) > 0);
 }
 
-function calculateStats(user) {
+function calculateStats(user, setId) {
   const stats = {
     total_cards: 0,
     unique_cards: 0,
@@ -799,7 +799,17 @@ function calculateStats(user) {
     trades_completed: user.trades_completed || 0,
   };
 
+  let setCardIds = null;
+  if (setId) {
+    try {
+      const set = resolveSet(setId);
+      setCardIds = new Set(Object.keys(set.cards));
+    } catch {}
+  }
+
   for (const [cardId, editions] of Object.entries(user.collection || {})) {
+    if (setCardIds && !setCardIds.has(cardId)) continue;
+
     for (const [ed, count] of Object.entries(editions)) {
       stats.total_cards += count;
       if (ed === "basic") stats.basic_cards += count;
@@ -844,7 +854,9 @@ function calculateStats(user) {
       } catch {}
     }
   }
-  stats.unique_cards = Object.keys(user.collection || {}).length;
+  stats.unique_cards = setCardIds
+    ? Object.keys(user.collection || {}).filter((id) => setCardIds.has(id)).length
+    : Object.keys(user.collection || {}).length;
   return stats;
 }
 
@@ -1027,11 +1039,17 @@ async function buildProfileEmbed(target, user) {
 async function showProfileEditor(interaction) {
   const u = loadUser(interaction.user.id);
   const s = calculateStats(u);
-  const { currentTitle } = getTitleProgress(s);
   const allTitles = getAllTitles();
-  const unlocked = currentTitle
-    ? allTitles.filter((t) => s[t.stat] >= t.threshold)
-    : [];
+  const unlocked = allTitles.filter((t) => {
+    for (const [sid, setConfig] of Object.entries(setsConfig)) {
+      if ((setConfig.titles || []).some((tt) => tt.name === t.name)) {
+        const setStats = calculateStats(u, sid);
+        return setStats[t.stat] >= t.threshold;
+      }
+    }
+    return false;
+  });
+  const currentTitle = unlocked.length ? unlocked[unlocked.length - 1].name : null;
   const titleOpts = [
     new StringSelectMenuOptionBuilder()
       .setLabel("None")
@@ -1197,10 +1215,10 @@ async function showProfileEditor(interaction) {
 }
 
 async function checkAndAwardTitles(user) {
-  const stats = calculateStats(user);
   const newlyUnlocked = [];
 
   for (const [setId, setConfig] of Object.entries(setsConfig)) {
+    const stats = calculateStats(user, setId);
     for (const title of setConfig.titles || []) {
       if (
         stats[title.stat] >= title.threshold &&
@@ -2808,7 +2826,7 @@ async function showSet(interaction, setId, target, user) {
 
   function buildAchievementsEmbed() {
     const setTitles = setsConfig[setId]?.titles || [];
-    const showStats = calculateStats(user);
+    const showStats = calculateStats(user, setId);
     const lines = setTitles.map((t) => {
       const unlocked = showStats[t.stat] >= t.threshold;
       const bar = buildProgressBar(
