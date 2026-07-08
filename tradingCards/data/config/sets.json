@@ -91,14 +91,14 @@
       {
         "name": "Foil Freak",
         "stat": "foil_cards",
-        "threshold": 25,
+        "threshold": 50,
         "description": "Own 25 Foil Electric Boogaloo cards",
         "rewards": [{ "type": "standard_pack", "amount": 5 }]
       },
       {
         "name": "Gold Rush",
         "stat": "gold_cards",
-        "threshold": 10,
+        "threshold": 25,
         "description": "Own 10 Gold Electric Boogaloo cards",
         "rewards": [{ "type": "standard_pack", "amount": 5 }]
       },
