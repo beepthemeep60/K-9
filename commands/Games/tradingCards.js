@@ -855,7 +855,8 @@ function calculateStats(user, setId) {
     }
   }
   stats.unique_cards = setCardIds
-    ? Object.keys(user.collection || {}).filter((id) => setCardIds.has(id)).length
+    ? Object.keys(user.collection || {}).filter((id) => setCardIds.has(id))
+        .length
     : Object.keys(user.collection || {}).length;
   return stats;
 }
@@ -1049,7 +1050,9 @@ async function showProfileEditor(interaction) {
     }
     return false;
   });
-  const currentTitle = unlocked.length ? unlocked[unlocked.length - 1].name : null;
+  const currentTitle = unlocked.length
+    ? unlocked[unlocked.length - 1].name
+    : null;
   const titleOpts = [
     new StringSelectMenuOptionBuilder()
       .setLabel("None")
@@ -2559,7 +2562,11 @@ async function inspectCard(interaction) {
                 .addOptions(
                   pageCards.map((cid) =>
                     new StringSelectMenuOptionBuilder()
-                      .setLabel(set.cards[cid].name.length > 100 ? set.cards[cid].name.slice(0, 97) + "..." : set.cards[cid].name)
+                      .setLabel(
+                        set.cards[cid].name.length > 100
+                          ? set.cards[cid].name.slice(0, 97) + "..."
+                          : set.cards[cid].name,
+                      )
                       .setValue(cid),
                   ),
                 ),
@@ -3266,10 +3273,11 @@ function buildEditionPickerMessage(userId, tradeId, cardId, editions) {
   const safeId = tradeId.replace(/[^a-z0-9]/gi, "_");
 
   const options = editions.map((ed) => {
-    const count = ownedEditions[ed] || 0;
+    const editionKey = typeof ed === "string" ? ed : ed.edition;
+    const count = ownedEditions[editionKey] || 0;
     return new StringSelectMenuOptionBuilder()
-      .setLabel(`${getEditionName(ed)} (${count} owned)`)
-      .setValue(`${cardId}:${ed}`);
+      .setLabel(`${getEditionName(editionKey)} (${count} owned)`)
+      .setValue(`${cardId}:${editionKey}`);
   });
 
   const selectId = `trade-ed-select-${safeId}`;
