@@ -17,7 +17,10 @@ const {
   getTotalXpForLevel,
 } = require("../../battlePass/services/battlePassService");
 
-const { loadUser: loadCardUser, addPack } = require("../../tradingCards/services/userService");
+const {
+  loadUser: loadCardUser,
+  addPack,
+} = require("../../tradingCards/services/userService");
 const fs = require("fs");
 
 function getMultipliers(member, dailyStreak) {
@@ -63,6 +66,11 @@ function getMultipliers(member, dailyStreak) {
     }
   } catch {}
 
+  const dayOfWeek = new Date().getDay();
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    lines.push("📅 It's the weekend! +50%");
+  }
+
   lines.push(`${hasBooster ? "✅" : "❌"} Server booster: +${boosterPct}%`);
 
   // Event winner role - 4x boost
@@ -73,19 +81,23 @@ function getMultipliers(member, dailyStreak) {
       "../../battlePass/data/eventWinnerRoles.json",
     );
     if (require("fs").existsSync(ewRolePath)) {
-      const ewRoles = JSON.parse(require("fs").readFileSync(ewRolePath, "utf8"));
+      const ewRoles = JSON.parse(
+        require("fs").readFileSync(ewRolePath, "utf8"),
+      );
       if (Array.isArray(ewRoles) && ewRoles.length > 0) {
-        hasEventWinnerRole = ewRoles.some(roleId => member?.roles?.cache?.has(roleId));
+        hasEventWinnerRole = ewRoles.some((roleId) =>
+          member?.roles?.cache?.has(roleId),
+        );
       }
     }
   } catch {}
   if (hasEventWinnerRole) lines.push("✅ Event Winner: +300%");
 
   lines.push(
-    `${punchScore >= 3000 ? "✅" : "❌"} /punch completed: +${punchPct}%`,
+    `${punchScore >= 3000 ? "✅" : "❌"} \`/punch\` completed: +${punchPct}%`,
   );
   lines.push(
-    `${rouletteScore > 0 ? "✅" : "❌"} /roulette streak: +${roulettePct}%`,
+    `${rouletteScore > 0 ? "✅" : "❌"} \`/roulette\` streak: +${roulettePct}%`,
   );
   lines.push(
     `✅ Daily login: ${(dailyStreak || 0) >= 0 ? "+" : ""}${dailyPct}% (${dailyStreak || 0} day${dailyStreak !== 1 ? "s" : ""})`,
@@ -142,6 +154,13 @@ function buildLevelEmbed(seasonData, season, member) {
 
   const multipliers = getMultipliers(member, seasonData.daily_streak);
 
+  const dailyXpCap = (season.xp_per_level || 100) * 3;
+  const xpToday = seasonData.xp_today || 0;
+  const capped = xpToday >= dailyXpCap;
+  const dailyLine = capped
+    ? `\n⚠️Daily XP limit of ${dailyXpCap.toLocaleString()} reached.\nAll XP gain reduced by 90% until tomorrow.`
+    : ``;
+
   const embed = new EmbedBuilder()
     .setColor(0x2b2d31)
     .setTitle(`🎖️ ${season.name}`)
@@ -149,7 +168,7 @@ function buildLevelEmbed(seasonData, season, member) {
     .addFields(
       {
         name: "XP",
-        value: `${seasonData.xp.toLocaleString()} / ${nextLevelXp.toLocaleString()}`,
+        value: `${seasonData.xp.toLocaleString()} / ${nextLevelXp.toLocaleString()}\n${dailyLine}`,
         inline: false,
       },
       {
@@ -324,7 +343,7 @@ module.exports = {
             `**🥊 /punch completed** - Use the /punch command 3000 times to unlock a permanent +25% xp boost!\n\n` +
             `**🎰 /roulette streak** - Play the roulette minigame against other players! Each point is a +2.5% xp boost!\n\n` +
             `**📅 Daily login** - Send at least 1 message in the server to add +2.5% to this each day! You will lose 2.5% for every day you miss.\n\n` +
-            `-# Note: You can only earn XP once per minute. XP gain is capped at 3 levels per day.`,
+            `-# Note: You can only earn XP once per minute. XP gain is capped at 3 levels per day, after which it will be reduced to 10% of what it was.\n\n`,
           flags: 64,
         });
       }

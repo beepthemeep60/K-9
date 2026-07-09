@@ -42,6 +42,7 @@ module.exports = {
         const filePath = path.join(commandsPath, file);
         const command = require(filePath);
         if ("data" in command && "execute" in command) {
+          command.data.setDMPermission(false);
           commands.push(command.data.toJSON());
         } else {
           console.log(

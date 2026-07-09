@@ -680,6 +680,11 @@ client.on("messageCreate", async function (message) {
               }
             } catch {}
 
+            const dayOfWeek = new Date().getDay();
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+              mult += 1;
+            }
+
             // Global double XP boost
             try {
               const globalDoubleXpPath = require("path").join(
@@ -698,12 +703,15 @@ client.on("messageCreate", async function (message) {
 
             const xpGained = Math.round(10 * mult);
 
-            // Cap daily XP gain at 5 levels worth
+            // Cap daily XP gain at 3 levels worth
             const xpPerLevel = season.xp_per_level || 100;
-            const dailyXpCap = xpPerLevel * 5;
+            const dailyXpCap = xpPerLevel * 3;
             const xpToday = seasonData.xp_today || 0;
             const remainingCap = Math.max(0, dailyXpCap - xpToday);
-            const cappedXp = Math.min(xpGained, remainingCap);
+            const cappedXp =
+              remainingCap > 0
+                ? Math.min(xpGained, remainingCap)
+                : Math.max(1, Math.round(xpGained * 0.1));
 
             const oldLevel = seasonData.level;
             seasonData.xp = (seasonData.xp || 0) + cappedXp;
@@ -1054,6 +1062,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   // slash commands
   if (interaction.isChatInputCommand()) {
+    if (!interaction.inGuild()) {
+      return interaction.reply({
+        content: "Commands can only be used in a server.",
+        flags: 64,
+      });
+    }
+
     const command = interaction.client.commands.get(interaction.commandName);
     if (!command) return;
 
