@@ -2,5 +2,9 @@
   "timey_wimey": {
     "display_name": "Timey Wimey",
     "weight": 0
+  },
+  "halloween": {
+    "display_name": "Halloween",
+    "weight": 15
   }
 }

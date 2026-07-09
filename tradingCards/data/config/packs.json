@@ -102,12 +102,12 @@
     "forced_edition": "timey_wimey"
   },
   "spooky_pack": {
-    "cards_per_pack": 3,
-    "guaranteed_min_rarity": "rare",
-    "guaranteed_min_edition": "basic",
-    "emoji": "⭐",
-    "description": "3 cards - All cards at least uncommon, final card guaranteed to be rare or higher",
-    "cover_overlay": "#ffd700",
+    "cards_per_pack": 5,
+    "guaranteed_min_rarity": "common",
+    "guaranteed_min_edition": "halloween",
+    "emoji": "🎃",
+    "description": "PLACEHOLDER",
+    "cover_overlay": "#F58727",
     "tiers": {
       "common": { "weight": 500 },
       "uncommon": { "weight": 100 },

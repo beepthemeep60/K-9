@@ -4048,8 +4048,8 @@ module.exports = {
               "`/cards inspect` - Inspect one of your owned cards\n" +
               "`/cards profile` - View and customise your card profile!\n" +
               "`/cards trade` - Trade cards with another user\n" +
-              "`/cards request` - Request a card to be added in the next set!\n",
-            "`/cards settings` - Adjust your user settings\n",
+              "`/cards request` - Request a card to be added in the next set!\n" +
+              "`/cards settings` - Adjust your user settings\n",
           );
         await interaction.reply({ embeds: [embed], flags: 64 });
         return;

@@ -664,11 +664,17 @@ client.on("messageCreate", async function (message) {
 
             // Event winner role - 4x boost
             try {
-              const ewRolePath = path.join(__dirname, "battlePass/data/eventWinnerRoles.json");
+              const ewRolePath = path.join(
+                __dirname,
+                "battlePass/data/eventWinnerRoles.json",
+              );
               if (fs.existsSync(ewRolePath)) {
                 const ewRoles = JSON.parse(fs.readFileSync(ewRolePath, "utf8"));
-                if (Array.isArray(ewRoles) && ewRoles.length > 0 &&
-                    ewRoles.some(roleId => member?.roles?.cache?.has(roleId))) {
+                if (
+                  Array.isArray(ewRoles) &&
+                  ewRoles.length > 0 &&
+                  ewRoles.some((roleId) => member?.roles?.cache?.has(roleId))
+                ) {
                   mult += 3;
                 }
               }
@@ -692,9 +698,9 @@ client.on("messageCreate", async function (message) {
 
             const xpGained = Math.round(10 * mult);
 
-            // Cap daily XP gain at 3 levels worth
+            // Cap daily XP gain at 5 levels worth
             const xpPerLevel = season.xp_per_level || 100;
-            const dailyXpCap = xpPerLevel * 3;
+            const dailyXpCap = xpPerLevel * 5;
             const xpToday = seasonData.xp_today || 0;
             const remainingCap = Math.max(0, dailyXpCap - xpToday);
             const cappedXp = Math.min(xpGained, remainingCap);

@@ -65,6 +65,9 @@ module.exports = {
           content: `You have been muted for ${minutes} minutes.`,
           components: [],
         });
+        await interaction.channel.send({
+          content: `<@${interaction.user.id}> has muted themselves for ${minutes} minutes.`,
+        });
       } catch (error) {
         console.log(error);
         await interaction.editReply({

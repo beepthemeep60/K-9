@@ -1,19 +1,24 @@
-K-9 Version 11 notes
+K-9 Version 11.3 notes
 ---------------------
-New features:
-- Released season 2!!
-- Added `/muteself`
-- Added `/dayswithoutincident`
-- Added the ability to favourite cards
-- Can now open 10 packs at once
-- Added `/cards settings`
-- Added daily login pack
+v11.3:
+    Updated level cap from 3 to 5
+    /muteself now shows a public message
 
-Updates:
-- Easier to find cards in `/cards trade`
-- Edition filter added to `/cards collection` and `/cards set`
-- Legendary cards are now 10x rarer across all packs
-- Battle pass XP gain capped at 3 levels per day
-- Daily XP streak increased from 1% to 2.5% per day
-- Level up requirement is 10x higher
-- Updated message moderation text
+v11:
+    New features:
+    - Released season 2!!
+    - Added /muteself
+    - Added /dayswithoutincident
+    - Added the ability to favourite cards
+    - Can now open 10 packs at once
+    - Added /cards settings
+    - Added daily login pack
+
+    Updates:
+    - Easier to find cards in /cards trade
+    - Edition filter added to /cards collection and /cards set
+    - Legendary cards are now 10x rarer across all packs
+    - Battle pass XP gain capped at 3 levels per day
+    - Daily XP streak increased from 1% to 2.5% per day
+    - Level up requirement is 10x higher
+    - Updated message moderation text
