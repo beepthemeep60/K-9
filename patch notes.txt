@@ -1,5 +1,9 @@
-K-9 Version 11.4 notes
+K-9 Version 11.5 notes
 ---------------------
+v11.5:
+    Added some new profile features
+    Fixed star badge
+    Added new stat, "packs opened"
 v11.4:
     Reverted cap back to 3, xp gain over limit is now divided by 10 instead of set to 0. Warning message is shown when at limit.
     Commands can no longer be used in dms (they were never designed to work there anyway)

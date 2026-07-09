@@ -75,6 +75,7 @@ const STAT_NAMES = {
   unpleasant_cards: "Unpleasant Cards",
   rainbow_cards: "Rainbow Cards",
   trades_completed: "Trades Completed",
+  packs_opened: "Packs Opened",
 };
 const editionChoices = Object.keys(allEditions).map((e) => ({
   name: allEditions[e].display_name || e,
@@ -294,7 +295,9 @@ async function renderCardImage(card, pullIndex, user, set) {
   const ctx = canvas.getContext("2d");
 
   coverImage(ctx, inputImage, canvas.width, canvas.height);
+  ctx.save();
   applyEditionEffect(ctx, card.edition, canvas.width, canvas.height);
+  ctx.restore();
 
   if (user && set) {
     const fullCard = set.cards[card.id];
@@ -797,6 +800,7 @@ function calculateStats(user, setId) {
     unpleasant_cards: 0,
     rainbow_cards: 0,
     trades_completed: user.trades_completed || 0,
+    packs_opened: Object.values(user.packs_opened || {}).reduce((a, b) => a + b, 0),
   };
 
   let setCardIds = null;
@@ -1034,6 +1038,46 @@ async function buildProfileEmbed(target, user) {
     });
   }
 
+  // Season participation data
+  try {
+    const seasonsDir = path.join(__dirname, "../../battlePass/data/seasons");
+    if (fs.existsSync(seasonsDir)) {
+      const seasonFiles = fs
+        .readdirSync(seasonsDir)
+        .filter((f) => f.endsWith(".json") && f !== "404.json")
+        .sort();
+      const bpUser = loadBpUser(target.id);
+      if (bpUser) {
+        const masteredEmojis = [];
+        const participatedEmojis = [];
+        for (const file of seasonFiles) {
+          const seasonId = file.replace(".json", "");
+          const season = loadSeason(seasonId);
+          const emoji =
+            season?.reward_set && setsConfig[season.reward_set]?.emoji;
+          if (bpUser.seasons?.[seasonId]?.level >= 100 && emoji) {
+            masteredEmojis.push(emoji);
+          }
+          if (bpUser.seasons?.[seasonId] && emoji) {
+            participatedEmojis.push(emoji);
+          }
+        }
+        if (masteredEmojis.length > 0) {
+          embed.spliceFields(1 + fieldsToAdd.length, 0, {
+            name: "Mastered Seasons",
+            value: masteredEmojis.join(" "),
+            inline: true,
+          });
+        }
+        if (participatedEmojis.length > 0) {
+          embed.setFooter({
+            text: `${participatedEmojis.join(" ")}`,
+          });
+        }
+      }
+    }
+  } catch {}
+
   return { embed, files };
 }
 
@@ -1193,7 +1237,7 @@ async function showProfileEditor(interaction) {
               .setLabel("Bio")
               .setStyle(TextInputStyle.Paragraph)
               .setRequired(false)
-              .setMaxLength(500)
+              .setMaxLength(200)
               .setValue(uu.bio || ""),
           ),
           new ActionRowBuilder().addComponents(
@@ -1287,6 +1331,9 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
   }
 
   const user = addCards(interaction.user.id, cards);
+  if (typeof user.packs_opened !== "object") user.packs_opened = {};
+  user.packs_opened[setId] = (user.packs_opened[setId] || 0) + 1;
+  saveUser(user);
 
   // One-time "cards request" tip (never repeats)
   let showRequestTip = false;
@@ -1565,6 +1612,9 @@ async function openMultiplePacksAndShow(
   }
 
   const userData = loadUser(interaction.user.id);
+  if (typeof userData.packs_opened !== "object") userData.packs_opened = {};
+  userData.packs_opened[setId] = (userData.packs_opened[setId] || 0) + count;
+  saveUser(userData);
 
   // 500+ cards tip
   const totalCards = Object.values(userData.collection || {}).reduce(
@@ -4850,7 +4900,7 @@ module.exports = {
       const bio = interaction.fields.getTextInputValue("bio");
       const accent_color =
         interaction.fields.getTextInputValue("accent_color") || "#2b2d31";
-      if (bio !== undefined) user.bio = bio;
+      if (bio !== undefined) user.bio = bio.slice(0, 200);
       user.accent_color = /^#[0-9a-f]{6}$/i.test(accent_color)
         ? accent_color
         : "#2b2d31";

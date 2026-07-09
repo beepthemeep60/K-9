@@ -343,7 +343,7 @@ module.exports = {
             `**🥊 /punch completed** - Use the /punch command 3000 times to unlock a permanent +25% xp boost!\n\n` +
             `**🎰 /roulette streak** - Play the roulette minigame against other players! Each point is a +2.5% xp boost!\n\n` +
             `**📅 Daily login** - Send at least 1 message in the server to add +2.5% to this each day! You will lose 2.5% for every day you miss.\n\n` +
-            `-# Note: You can only earn XP once per minute. XP gain is capped at 3 levels per day, after which it will be reduced to 10% of what it was.\n\n`,
+            `-# Note: You can only earn XP once per minute. XP gain is capped at 3 levels per day, after which it will be reduced by 90%\n\n`,
           flags: 64,
         });
       }
