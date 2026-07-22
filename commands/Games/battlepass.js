@@ -172,7 +172,7 @@ function buildLevelEmbed(seasonData, season, member) {
         inline: false,
       },
       {
-        name: "Progress",
+        name: "Progress to Next Level:",
         value: `${bar} ${progress}%`,
         inline: false,
       },

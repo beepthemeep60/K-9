@@ -116,6 +116,7 @@ const DEFAULT_SET = Object.keys(setsConfig)[0] || "00";
 const DEFAULT_PACK = Object.keys(packsConfig)[0] || "standard_pack";
 const CARD_IMAGE_SIZE = 768;
 const IMG_CACHE = new Map();
+const ACHIEVEMENT_FALLBACK_CHANNEL = "1513525706129277030";
 
 function cacheKey(type, id, edition, ...rest) {
   return `${type}:${id}:${edition}:${rest.join(":")}`;
@@ -800,7 +801,10 @@ function calculateStats(user, setId) {
     unpleasant_cards: 0,
     rainbow_cards: 0,
     trades_completed: user.trades_completed || 0,
-    packs_opened: Object.values(user.packs_opened || {}).reduce((a, b) => a + b, 0),
+    packs_opened: Object.values(user.packs_opened || {}).reduce(
+      (a, b) => a + b,
+      0,
+    ),
   };
 
   let setCardIds = null;
@@ -1305,6 +1309,38 @@ async function checkAndAwardTitles(user) {
   });
 }
 
+async function sendAchievementNotification(client, userId, achievementMsgs) {
+  if (!achievementMsgs?.length) return;
+  const user = loadUser(userId);
+  const settings = user?.settings || {};
+  if (settings.disable_achievement_dms) {
+    const channel = await client.channels
+      .fetch(ACHIEVEMENT_FALLBACK_CHANNEL)
+      .catch(() => null);
+    if (channel) {
+      channel
+        .send({ content: `<@${userId}>\n${achievementMsgs.join("\n\n")}` })
+        .catch(() => {});
+    }
+    return;
+  }
+  try {
+    const dmUser = await client.users.fetch(userId);
+    await dmUser.send({
+      content: `${achievementMsgs.join("\n\n")}\n\n-# Run \`/cards profile\` to change your title!\n-# Run \`/cards inventory\` to inspect your owned packs!`,
+    });
+  } catch {
+    const channel = await client.channels
+      .fetch(ACHIEVEMENT_FALLBACK_CHANNEL)
+      .catch(() => null);
+    if (channel) {
+      channel
+        .send({ content: `<@${userId}>\n${achievementMsgs.join("\n\n")}` })
+        .catch(() => {});
+    }
+  }
+}
+
 async function openPackAndShow(interaction, { setId, packType, set, pack }) {
   const removed = removePack(interaction.user.id, setId, packType, 1);
   if (!removed) {
@@ -1418,16 +1454,12 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
     await interaction.editReply(
       buildSummaryMessage(cards, set, setId, user, packType),
     );
-    const achievementMsgs2 = await checkAndAwardTitles(
-      loadUser(interaction.user.id),
-    ).catch(() => []);
-    if (achievementMsgs2?.length) {
-      await interaction
-        .followUp({
-          content: `${achievementMsgs2.join("\n\n")}\n\n-# Run \`/cards profile\` to change your title!\n-# Run \`/cards inventory\` to inspect your owned packs!`,
-          flags: 64,
-        })
-        .catch(() => {});
+    if (achievementMsgs?.length) {
+      await sendAchievementNotification(
+        interaction.client,
+        interaction.user.id,
+        achievementMsgs,
+      );
     }
     return;
   }
@@ -1556,12 +1588,11 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
 
   collector.on("end", async (_, reason) => {
     if (achievementMsgs?.length) {
-      await interaction
-        .followUp({
-          content: `${achievementMsgs.join("\n\n")}\n\n-# Run \`/cards profile\` to change your title!\n-# Run \`/cards inventory\` to inspect your owned packs!`,
-          flags: 64,
-        })
-        .catch(() => {});
+      await sendAchievementNotification(
+        interaction.client,
+        interaction.user.id,
+        achievementMsgs,
+      );
     }
     if (reason === "finished") return;
     try {
@@ -1636,6 +1667,14 @@ async function openMultiplePacksAndShow(
   }
 
   const achievementMsgs = await checkAndAwardTitles(userData).catch(() => []);
+
+  if (achievementMsgs?.length) {
+    sendAchievementNotification(
+      interaction.client,
+      interaction.user.id,
+      achievementMsgs,
+    );
+  }
 
   // Build summaries for each pack
   const summaries = allPackResults.map((cards, idx) => {
@@ -1725,11 +1764,6 @@ async function openMultiplePacksAndShow(
   });
 
   collector.on("end", async (_, reason) => {
-    if (achievementMsgs?.length) {
-      await interaction
-        .followUp({ content: achievementMsgs.join("\n\n"), flags: 64 })
-        .catch(() => {});
-    }
     try {
       const msg = await interaction.fetchReply();
       await msg.edit({ components: [] });
@@ -1791,6 +1825,11 @@ async function showCollection(interaction, target, user) {
         return sum;
       }
     }, 0);
+    const totalOwnedAllEditions = Object.values(user.collection || {}).reduce(
+      (sum, editions) =>
+        sum + Object.values(editions).reduce((a, b) => a + b, 0),
+      0,
+    );
 
     const sortLabels = {
       chronological: "Chronological",
@@ -1812,7 +1851,7 @@ async function showCollection(interaction, target, user) {
       })
       .setDescription(buildCollectionGrid(pageCards))
       .setFooter({
-        text: `Page ${state.page + 1}/${totalPages} · ${cards.length} owned · ${totalUnique}/${totalAll} unique · ${sortLabel}${edFilterLabel}`,
+        text: `Page ${state.page + 1}/${totalPages} · ${totalOwnedAllEditions} total · ${totalUnique}/${totalAll} unique · ${sortLabel}${edFilterLabel}`,
       });
 
     const pageRow = new ActionRowBuilder().addComponents(
@@ -1867,17 +1906,26 @@ async function showCollection(interaction, target, user) {
         .setDisabled(state.sortBy === "highest_edition"),
     );
 
+    const ownedEditionsGlobal = new Set();
+    for (const [, editions] of Object.entries(user.collection || {})) {
+      for (const [ed, count] of Object.entries(editions)) {
+        if (count > 0) ownedEditionsGlobal.add(ed);
+      }
+    }
+
     const edOptions = [
       new StringSelectMenuOptionBuilder()
         .setLabel("All Editions")
         .setValue("none")
         .setDefault(!state.editionFilter),
-      ...Object.keys(allEditions).map((e) =>
-        new StringSelectMenuOptionBuilder()
-          .setLabel(getEditionName(e))
-          .setValue(e)
-          .setDefault(state.editionFilter === e),
-      ),
+      ...Object.keys(allEditions)
+        .filter((e) => ownedEditionsGlobal.has(e))
+        .map((e) =>
+          new StringSelectMenuOptionBuilder()
+            .setLabel(getEditionName(e))
+            .setValue(e)
+            .setDefault(state.editionFilter === e),
+        ),
     ];
 
     const filterRow = new ActionRowBuilder().addComponents(
@@ -2877,9 +2925,7 @@ async function showSet(interaction, setId, target, user) {
     edFilter: `set-edfilter-${interaction.id}`,
     edClear: `set-edclear-${interaction.id}`,
   };
-  let page = 0;
-  let showingAchievements = false;
-  let editionFilter = null;
+  const state = { page: 0, showingAchievements: false, editionFilter: null };
 
   function buildAchievementsEmbed() {
     const setTitles = setsConfig[setId]?.titles || [];
@@ -2916,14 +2962,7 @@ async function showSet(interaction, setId, target, user) {
   }
 
   function buildPage(pageIndex) {
-    // Apply edition filter
     let filteredCards = allCards;
-    if (editionFilter) {
-      filteredCards = allCards.filter(([cardId]) => {
-        const owned = user.collection?.[cardId];
-        return owned && owned[editionFilter] > 0;
-      });
-    }
 
     const totalFilteredPages = Math.ceil(
       filteredCards.length / CARDS_PER_SET_PAGE,
@@ -2939,6 +2978,26 @@ async function showSet(interaction, setId, target, user) {
 
     const lines = chunk.map(([cardId, card]) => {
       const owned = user.collection?.[cardId];
+
+      if (state.editionFilter) {
+        const hasEdition = owned && owned[state.editionFilter] > 0;
+        const nonTimeyOwned = owned
+          ? Object.keys(owned).filter((ed) => ed !== "timey_wimey")
+          : [];
+        const timeyOnly =
+          owned && nonTimeyOwned.length === 0 && owned.timey_wimey > 0;
+        const ownedEditions = nonTimeyOwned.length
+          ? nonTimeyOwned.map(getEditionName).join(", ")
+          : timeyOnly
+            ? "Timey Wimey only (doesn't count)"
+            : "";
+        const emoji = nonTimeyOwned.length ? (hasEdition ? "✅" : "❌") : "❌";
+        const statusText = nonTimeyOwned.length
+          ? ` ${ownedEditions}`
+          : " Unowned";
+        return `\`${getCardIndex(set, cardId)}.\` **${card.name}** - ${titleCase(card.rarity)}\n${emoji}${statusText}`;
+      }
+
       const nonTimeyOwned = owned
         ? Object.keys(owned).filter((ed) => ed !== "timey_wimey")
         : [];
@@ -2958,8 +3017,8 @@ async function showSet(interaction, setId, target, user) {
       return `\`${getCardIndex(set, cardId)}.\` **${card.name}** - ${titleCase(card.rarity)}\n${status}`;
     });
 
-    const edFilterLabel = editionFilter
-      ? ` · Filter: ${getEditionName(editionFilter)}`
+    const edFilterLabel = state.editionFilter
+      ? ` · Filter: ${getEditionName(state.editionFilter)}`
       : "";
 
     const embed = new EmbedBuilder()
@@ -2989,17 +3048,27 @@ async function showSet(interaction, setId, target, user) {
         .setStyle(ButtonStyle.Secondary),
     );
 
+    const ownedEditionsInSet = new Set();
+    for (const [cardId] of allCards) {
+      const owned = user.collection?.[cardId] || {};
+      for (const [ed, count] of Object.entries(owned)) {
+        if (count > 0) ownedEditionsInSet.add(ed);
+      }
+    }
+
     const edOptions = [
       new StringSelectMenuOptionBuilder()
         .setLabel("All Editions")
         .setValue("none")
-        .setDefault(!editionFilter),
-      ...Object.keys(allEditions).map((e) =>
-        new StringSelectMenuOptionBuilder()
-          .setLabel(getEditionName(e))
-          .setValue(e)
-          .setDefault(editionFilter === e),
-      ),
+        .setDefault(!state.editionFilter),
+      ...Object.keys(allEditions)
+        .filter((e) => ownedEditionsInSet.has(e))
+        .map((e) =>
+          new StringSelectMenuOptionBuilder()
+            .setLabel(getEditionName(e))
+            .setValue(e)
+            .setDefault(state.editionFilter === e),
+        ),
     ];
 
     const filterRow = new ActionRowBuilder().addComponents(
@@ -3022,7 +3091,6 @@ async function showSet(interaction, setId, target, user) {
 
   const msg = await interaction.editReply(buildPage(0));
   const collector = msg.createMessageComponentCollector({
-    componentType: ComponentType.Button,
     time: 5 * 60 * 1000,
   });
 
@@ -3033,7 +3101,7 @@ async function showSet(interaction, setId, target, user) {
     ids,
     buildPage,
     buildAchievementsEmbed,
-    page,
+    state,
     totalPages,
   );
 }
@@ -3045,24 +3113,24 @@ function handleSetCollector(
   ids,
   buildPage,
   buildAchievementsEmbed,
-  page,
+  state,
   totalPages,
 ) {
   collector.on("collect", async (i) => {
     try {
       if (i.customId === ids.left) {
-        page = Math.max(0, page - 1);
-        await i.update(buildPage(page));
+        state.page = Math.max(0, state.page - 1);
+        await i.update(buildPage(state.page));
       } else if (i.customId === ids.right) {
-        page++;
-        await i.update(buildPage(page));
+        state.page++;
+        await i.update(buildPage(state.page));
       } else if (i.customId === ids.achievements) {
         await i.reply({ ...buildAchievementsEmbed(), flags: 64 });
       } else if (i.customId === ids.edFilter) {
         const val = i.values[0];
-        editionFilter = val === "none" ? null : val;
-        page = 0;
-        await i.update(buildPage(page));
+        state.editionFilter = val === "none" ? null : val;
+        state.page = 0;
+        await i.update(buildPage(state.page));
       }
     } catch (err) {
       console.error("Set update failed:", err);
@@ -3075,7 +3143,7 @@ function handleSetCollector(
 
   collector.on("end", async () => {
     await interaction
-      .editReply({ ...buildPage(page), components: [] })
+      .editReply({ ...buildPage(state.page), components: [] })
       .catch(() => {});
   });
 }
@@ -3224,7 +3292,7 @@ function buildTradeComponents(tradeId) {
   ];
 }
 
-function buildCardPickerMessage(userId, tradeId, page) {
+function buildSetPickerMessage(userId, tradeId) {
   const user = loadUser(userId);
   const trade = activeTrades.get(tradeId);
   if (!trade) return null;
@@ -3238,6 +3306,117 @@ function buildCardPickerMessage(userId, tradeId, page) {
       content: "You have no cards available to trade.",
       embeds: [],
       components: [],
+      ephemeral: true,
+    };
+  }
+
+  const setCounts = {};
+  for (const item of available) {
+    if (!setCounts[item.setId]) setCounts[item.setId] = 0;
+    setCounts[item.setId]++;
+  }
+
+  const safeId = tradeId.replace(/[^a-z0-9]/gi, "_");
+
+  const options = Object.entries(setCounts).map(([sid, count]) => {
+    const sConfig = setsConfig[sid];
+    return new StringSelectMenuOptionBuilder()
+      .setLabel(`${sConfig?.emoji || "📦"} ${sConfig?.name || sid}`)
+      .setDescription(`${count} cards available`)
+      .setValue(sid);
+  });
+
+  if (options.length === 0) {
+    return {
+      content: "You have no cards available to trade.",
+      embeds: [],
+      components: [],
+      ephemeral: true,
+    };
+  }
+
+  const selectId = `trade-setselect-${safeId}`;
+  const allId = `trade-setall-${safeId}`;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x2b2d31)
+    .setTitle("Add Cards to Trade")
+    .setDescription(
+      `Select a set to browse, or view all cards.\nOffered: **${offered.length}**`,
+    );
+
+  return {
+    content: "**Choose a set:**",
+    embeds: [embed],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(selectId)
+          .setPlaceholder("Choose a set...")
+          .addOptions(options),
+      ),
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(allId)
+          .setLabel("Select All Sets")
+          .setStyle(ButtonStyle.Secondary),
+      ),
+    ],
+    ephemeral: true,
+  };
+}
+
+function buildCardPickerMessage(
+  userId,
+  tradeId,
+  page,
+  setId = null,
+  showPartnerUnownedOnly = false,
+) {
+  const user = loadUser(userId);
+  const trade = activeTrades.get(tradeId);
+  if (!trade) return null;
+
+  const isInitiator = userId === trade.initiatorId;
+  const offered = isInitiator ? trade.initiatorCards : trade.targetCards;
+  let available = getRemainingOfferableCardsGrouped(user, offered);
+
+  if (setId) {
+    available = available.filter((item) => item.setId === setId);
+  }
+
+  if (showPartnerUnownedOnly) {
+    const partnerId = isInitiator ? trade.targetId : trade.initiatorId;
+    const partnerUser = loadUser(partnerId);
+    const partnerCollection = partnerUser?.collection || {};
+    available = available.filter((item) => !partnerCollection[item.cardId]);
+  }
+
+  if (!available.length) {
+    const safeId = tradeId.replace(/[^a-z0-9]/gi, "_");
+    return {
+      content: setId
+        ? "No cards match your selection."
+        : "You have no cards available to trade.",
+      embeds: [],
+      components: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`trade-backtosets-${safeId}`)
+            .setLabel("Sets")
+            .setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder()
+            .setCustomId(`trade-partner-unowned-${safeId}`)
+            .setLabel(
+              showPartnerUnownedOnly ? "Partner Unowned ✓" : "Partner Unowned",
+            )
+            .setStyle(
+              showPartnerUnownedOnly
+                ? ButtonStyle.Success
+                : ButtonStyle.Secondary,
+            ),
+        ),
+      ],
       ephemeral: true,
     };
   }
@@ -3268,12 +3447,16 @@ function buildCardPickerMessage(userId, tradeId, page) {
   const prevId = `trade-prev-${safeId}`;
   const nextId = `trade-next-${safeId}`;
   const doneId = `trade-done-${safeId}`;
+  const backId = `trade-backtosets-${safeId}`;
+  const partnerUnownedId = `trade-partner-unowned-${safeId}`;
 
+  const setLabel = setId ? ` (${setsConfig[setId]?.name || setId})` : "";
+  const filterLabel = showPartnerUnownedOnly ? " · Partner's unowned" : "";
   const embed = new EmbedBuilder()
     .setColor(0x2b2d31)
     .setTitle("Add Cards to Trade")
     .setDescription(
-      `Available cards: **${available.length}**  •  Offered: **${offered.length}**  •  ${totalPages > 1 ? `Page ${page + 1}/${totalPages}` : ""}`,
+      `Available cards: **${available.length}**${setLabel}  •  Offered: **${offered.length}**  •  ${totalPages > 1 ? `Page ${page + 1}/${totalPages}` : ""}${filterLabel}`,
     );
 
   return {
@@ -3297,6 +3480,20 @@ function buildCardPickerMessage(userId, tradeId, page) {
           .setLabel("Next →")
           .setStyle(ButtonStyle.Secondary)
           .setDisabled(page >= totalPages - 1),
+        new ButtonBuilder()
+          .setCustomId(backId)
+          .setLabel("Select Sets")
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(partnerUnownedId)
+          .setLabel(
+            showPartnerUnownedOnly ? "Partner Unowned ✓" : "Partner Unowned",
+          )
+          .setStyle(
+            showPartnerUnownedOnly
+              ? ButtonStyle.Success
+              : ButtonStyle.Secondary,
+          ),
         new ButtonBuilder()
           .setCustomId(doneId)
           .setLabel("Done")
@@ -3568,9 +3765,26 @@ async function handleTrade(interaction) {
         await i.deferUpdate();
 
         let pickPage = 0;
+        let selectedSetId = null;
+        let showPartnerUnownedOnly = false;
         const pickerMsg = await i.followUp(
-          buildCardPickerMessage(i.user.id, tradeId, pickPage),
+          buildSetPickerMessage(i.user.id, tradeId),
         );
+
+        const setPickerFilter = (ci) =>
+          ci.user.id === i.user.id &&
+          (ci.customId.startsWith("trade-setselect-") ||
+            ci.customId.startsWith("trade-setall-"));
+
+        const setSelection = await pickerMsg
+          .awaitMessageComponent({ filter: setPickerFilter, time: 120000 })
+          .catch(() => null);
+
+        if (!setSelection) return;
+
+        if (setSelection.customId.startsWith("trade-setselect-")) {
+          selectedSetId = setSelection.values[0];
+        }
 
         const pickerFilter = (ci) =>
           ci.user.id === i.user.id &&
@@ -3579,7 +3793,19 @@ async function handleTrade(interaction) {
             ci.customId.startsWith("trade-next-") ||
             ci.customId.startsWith("trade-done-") ||
             ci.customId.startsWith("trade-ed-select-") ||
-            ci.customId.startsWith("trade-ed-back-"));
+            ci.customId.startsWith("trade-ed-back-") ||
+            ci.customId.startsWith("trade-backtosets-") ||
+            ci.customId.startsWith("trade-partner-unowned-"));
+
+        await setSelection.update(
+          buildCardPickerMessage(
+            i.user.id,
+            tradeId,
+            pickPage,
+            selectedSetId,
+            showPartnerUnownedOnly,
+          ),
+        );
 
         let picking = true;
         while (picking) {
@@ -3588,17 +3814,70 @@ async function handleTrade(interaction) {
             .catch(() => null);
           if (!ci) break;
 
+          if (ci.customId.startsWith("trade-backtosets-")) {
+            selectedSetId = null;
+            showPartnerUnownedOnly = false;
+            pickPage = 0;
+            await ci.update(buildSetPickerMessage(i.user.id, tradeId));
+            const backFilter = (ci2) =>
+              ci2.user.id === i.user.id &&
+              (ci2.customId.startsWith("trade-setselect-") ||
+                ci2.customId.startsWith("trade-setall-"));
+            const setSel = await pickerMsg
+              .awaitMessageComponent({ filter: backFilter, time: 120000 })
+              .catch(() => null);
+            if (!setSel) break;
+            if (setSel.customId.startsWith("trade-setselect-")) {
+              selectedSetId = setSel.values[0];
+            }
+            await setSel.update(
+              buildCardPickerMessage(
+                i.user.id,
+                tradeId,
+                pickPage,
+                selectedSetId,
+                showPartnerUnownedOnly,
+              ),
+            );
+            continue;
+          }
+          if (ci.customId.startsWith("trade-partner-unowned-")) {
+            showPartnerUnownedOnly = !showPartnerUnownedOnly;
+            pickPage = 0;
+            await ci.update(
+              buildCardPickerMessage(
+                i.user.id,
+                tradeId,
+                pickPage,
+                selectedSetId,
+                showPartnerUnownedOnly,
+              ),
+            );
+            continue;
+          }
           if (ci.customId.startsWith("trade-prev-")) {
             pickPage--;
             await ci.update(
-              buildCardPickerMessage(i.user.id, tradeId, pickPage),
+              buildCardPickerMessage(
+                i.user.id,
+                tradeId,
+                pickPage,
+                selectedSetId,
+                showPartnerUnownedOnly,
+              ),
             );
             continue;
           }
           if (ci.customId.startsWith("trade-next-")) {
             pickPage++;
             await ci.update(
-              buildCardPickerMessage(i.user.id, tradeId, pickPage),
+              buildCardPickerMessage(
+                i.user.id,
+                tradeId,
+                pickPage,
+                selectedSetId,
+                showPartnerUnownedOnly,
+              ),
             );
             continue;
           }
@@ -3641,12 +3920,12 @@ async function handleTrade(interaction) {
               if (isInitiator) {
                 t.initiatorCards.push({
                   cardId: selectedCardId,
-                  edition: match.editions[0],
+                  edition: match.editions[0].edition,
                 });
               } else {
                 t.targetCards.push({
                   cardId: selectedCardId,
-                  edition: match.editions[0],
+                  edition: match.editions[0].edition,
                 });
               }
               if (t.initiatorReady || t.targetReady) {
@@ -3656,7 +3935,13 @@ async function handleTrade(interaction) {
               await ci.deferUpdate();
               await updateTradeMessage(interaction, t, tradeId);
               await ci.editReply(
-                buildCardPickerMessage(i.user.id, tradeId, pickPage),
+                buildCardPickerMessage(
+                  i.user.id,
+                  tradeId,
+                  pickPage,
+                  selectedSetId,
+                  showPartnerUnownedOnly,
+                ),
               );
             } else {
               // Multiple editions - show edition picker
@@ -3716,7 +4001,13 @@ async function handleTrade(interaction) {
                   components: [],
                 });
                 await ci.editReply(
-                  buildCardPickerMessage(i.user.id, tradeId, pickPage),
+                  buildCardPickerMessage(
+                    i.user.id,
+                    tradeId,
+                    pickPage,
+                    selectedSetId,
+                    showPartnerUnownedOnly,
+                  ),
                 );
               }
             }
@@ -3883,14 +4174,18 @@ async function handleTrade(interaction) {
           });
 
           if (iAch?.length) {
-            interaction
-              .followUp({ content: iAch.join("\n\n"), flags: 64 })
-              .catch(() => {});
+            sendAchievementNotification(
+              interaction.client,
+              currentTrade.initiatorId,
+              iAch,
+            );
           }
-          if (tAch?.length && currentTrade.lastTargetInteraction) {
-            currentTrade.lastTargetInteraction
-              .followUp({ content: tAch.join("\n\n"), flags: 64 })
-              .catch(() => {});
+          if (tAch?.length) {
+            sendAchievementNotification(
+              interaction.client,
+              currentTrade.targetId,
+              tAch,
+            );
           }
 
           endTrade(tradeId, "completed");
@@ -3940,6 +4235,7 @@ async function handleTrade(interaction) {
 module.exports = {
   buildCardMessage,
   checkAndAwardTitles,
+  sendAchievementNotification,
   resolveSet,
   getSetName,
   getEditionName,
@@ -4107,6 +4403,23 @@ module.exports = {
 
       if (subcommand === "open") {
         await interaction.deferReply();
+        const latestSeasonId = getLatestSeasonId();
+        const currentSeason = latestSeasonId ? getCurrentSeason() : null;
+        if (!currentSeason || !latestSeasonId) {
+          await interaction.followUp({
+            content:
+              "ℹ️ There is no active season right now. You can still open your packs!",
+            flags: 64,
+          });
+        }
+        const bpUser = loadBpUser(interaction.user.id);
+        if (!bpUser?.seasons?.[latestSeasonId]) {
+          await interaction.followUp({
+            content:
+              "❗ You aren't part of the current season! Run `/battlepass`!",
+            flags: 64,
+          });
+        }
         const userData = loadUser(interaction.user.id);
 
         const ownedSetIds = Object.keys(userData.packs || {})
@@ -4474,7 +4787,7 @@ module.exports = {
             }
             interaction
               .followUp({
-                content: `**Tutorial Complete!** 🎉 You've earned **1x Premium Pack**!\n\nKeep chatting to earn more packs - you get one per level! I'll react to your message with the ✉️ emoji whenever you recieve a new pack. Look out for any 💌 reactions - they mean you've earned a milestone reward!\n\n-# You can always use \`/cards help\` to see all available commands!`,
+                content: `**Tutorial Complete!** 🎉 You've earned **1x Premium Pack**!\n\nKeep chatting to earn more packs - you get one per level! I'll react to your message with the ✉️ emoji whenever you receive a new pack. Look out for any 💌 reactions - they mean you've earned a milestone reward!\n\n-# You can always use \`/cards help\` to see all available commands!`,
                 flags: 64,
               })
               .catch(() => {});
@@ -4631,6 +4944,7 @@ module.exports = {
             auto_open_packs: false,
             disable_reactions: false,
             disable_participation_role: false,
+            disable_achievement_dms: false,
           };
 
         const member = await interaction.guild?.members
@@ -4681,7 +4995,8 @@ module.exports = {
             `**Completion Star Badges:** ${u.settings.disable_star_badge ? "❌ Disabled" : "✅ Enabled"}\n_Shows the ⭐ badge on completed cards._\n\n` +
             `**Auto-Open Packs:** ${u.settings.auto_open_packs ? "✅ Enabled" : "❌ Disabled"}\n_Opens standard packs automatically as you receive them. Some rewards are excluded. (Skips straight to summary)_\n\n` +
             `**Reaction Notifications:** ${u.settings.disable_reactions ? "❌ Disabled" : "✅ Enabled"}\n_Reacts to your message with ✉️ or other emojis when you receive rewards._\n\n` +
-            `**Display Participation Role:** ${u.settings.disable_participation_role ? "❌ Disabled" : "✅ Enabled"}\n_Toggles whether or not the participation role for the current season is displayed on your profile._`;
+            `**Display Participation Role:** ${u.settings.disable_participation_role ? "❌ Disabled" : "✅ Enabled"}\n_Toggles whether or not the participation role for the current season is displayed on your profile._\n\n` +
+            `**Achievement DMs:** ${u.settings.disable_achievement_dms ? "❌ Disabled" : "✅ Enabled"}\n_Receive achievement notifications via DM. When disabled, achievements are sent to <#1513525706129277030> instead._`;
 
           const earned = completedRoles.filter((cr) => cr.earned);
           if (earned.length > 0) {
@@ -4737,7 +5052,18 @@ module.exports = {
               .setStyle(ButtonStyle.Secondary),
           );
 
-          const comps = [row];
+          const row2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId("settings-toggle-achievement-dms")
+              .setLabel(
+                u.settings.disable_achievement_dms
+                  ? "Enable Achievement DMs"
+                  : "Disable Achievement DMs",
+              )
+              .setStyle(ButtonStyle.Secondary),
+          );
+
+          const comps = [row, row2];
 
           const earned = completedRoles.filter((cr) => cr.earned);
           if (earned.length > 0) {
@@ -4792,6 +5118,7 @@ module.exports = {
               auto_open_packs: false,
               disable_reactions: false,
               disable_participation_role: false,
+              disable_achievement_dms: false,
             };
 
           if (i.customId === "settings-toggle-skip") {
@@ -4837,6 +5164,9 @@ module.exports = {
                 } catch {}
               }
             }
+          } else if (i.customId === "settings-toggle-achievement-dms") {
+            u.settings.disable_achievement_dms =
+              !u.settings.disable_achievement_dms;
           }
           saveUser(u);
 

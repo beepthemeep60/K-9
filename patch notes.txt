@@ -1,5 +1,11 @@
-K-9 Version 11.5 notes
+K-9 Version 11.6 notes
 ---------------------
+v11.6:
+    Achievements are now sent to DMs (can be disabled in /cards settings)
+    Trading selection improvements
+    Updated progress to next level text on /battlepass
+    Shortened the name of card 02-78
+    Auto opening now grants achievements
 v11.5:
     Added some new profile features
     Fixed star badge
@@ -11,7 +17,6 @@ v11.4:
 v11.3:
     Updated level cap from 3 to 5
     /muteself now shows a public message
-
 v11:
     New features:
     - Released season 2!!

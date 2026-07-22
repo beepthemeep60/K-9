@@ -30,6 +30,11 @@ const configuration = new Configuration({
 
 const openai = new OpenAIApi(configuration);
 
+const activityOptions = {
+  name: "Try /battlepass!",
+  type: ActivityType.Watching,
+};
+
 // create client with necessary intents
 const client = new Client({
   intents: [
@@ -38,6 +43,9 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
   ],
+  presence: {
+    activities: [activityOptions],
+  },
 });
 
 // sets the last channel
@@ -141,15 +149,6 @@ client.on("ready", async () => {
   logger.info("Bot started at " + new Date().toISOString());
   reader();
 
-  // Set the presence outside the callback function
-  client.user.setPresence({
-    activities: [
-      {
-        name: "Try /battlepass!",
-        type: ActivityType.Watching,
-      },
-    ],
-  });
   try {
     client.channels.cache
       .get("1018199943774732410")
@@ -610,7 +609,11 @@ client.on("messageCreate", async function (message) {
                     try {
                       const {
                         buildSummaryMessage,
+                        checkAndAwardTitles,
                       } = require("./commands/Games/tradingCards");
+                      const {
+                        loadUser: loadTcUserAfter,
+                      } = require("./tradingCards/services/userService");
                       const set = require(
                         `./tradingCards/data/sets/${seasonSetId}.json`,
                       );
@@ -627,6 +630,20 @@ client.on("messageCreate", async function (message) {
                       autoChannel
                         .send({ content: `<@${message.author.id}>`, ...msg })
                         .catch(() => {});
+                      const refreshedUser = loadTcUserAfter(message.author.id);
+                      const achMsgs = await checkAndAwardTitles(
+                        refreshedUser,
+                      ).catch(() => []);
+                      if (achMsgs?.length) {
+                        const {
+                          sendAchievementNotification,
+                        } = require("./commands/Games/tradingCards");
+                        sendAchievementNotification(
+                          client,
+                          message.author.id,
+                          achMsgs,
+                        );
+                      }
                     } catch {}
                   }
                 }
@@ -762,7 +779,11 @@ client.on("messageCreate", async function (message) {
                           try {
                             const {
                               buildSummaryMessage,
+                              checkAndAwardTitles,
                             } = require("./commands/Games/tradingCards");
+                            const {
+                              loadUser: loadTcUserAfter,
+                            } = require("./tradingCards/services/userService");
                             const set = require(
                               `./tradingCards/data/sets/${reward.set}.json`,
                             );
@@ -782,6 +803,22 @@ client.on("messageCreate", async function (message) {
                                 ...msg,
                               })
                               .catch(() => {});
+                            const refreshedUser = loadTcUserAfter(
+                              message.author.id,
+                            );
+                            const achMsgs = await checkAndAwardTitles(
+                              refreshedUser,
+                            ).catch(() => []);
+                            if (achMsgs?.length) {
+                              const {
+                                sendAchievementNotification,
+                              } = require("./commands/Games/tradingCards");
+                              sendAchievementNotification(
+                                client,
+                                message.author.id,
+                                achMsgs,
+                              );
+                            }
                           } catch {}
                         }
                       }
