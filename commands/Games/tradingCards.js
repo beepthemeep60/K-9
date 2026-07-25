@@ -64,31 +64,30 @@ const EDITION_ORDER = Object.keys(allEditions);
 const STAT_NAMES = {
   total_cards: "Total Cards",
   unique_cards: "Unique Cards",
-  common_cards: "Common Cards",
+  common_cards: "\nCommon Cards",
   uncommon_cards: "Uncommon Cards",
   rare_cards: "Rare Cards",
   epic_cards: "Epic Cards",
   legendary_cards: "Legendary Cards",
-  basic_cards: "Basic Cards",
+  basic_cards: "\nBasic Cards",
   foil_cards: "Foil Cards",
   gold_cards: "Gold Cards",
   unpleasant_cards: "Unpleasant Cards",
   rainbow_cards: "Rainbow Cards",
-  trades_completed: "Trades Completed",
+  event_cards_owned: "Event Cards",
+  trades_completed: "\nTrades Completed",
   packs_opened: "Packs Opened",
 };
 const editionChoices = Object.keys(allEditions).map((e) => ({
   name: allEditions[e].display_name || e,
   value: e,
 }));
-const EDITION_ABBR = {
-  basic: "B",
-  foil: "F",
-  gold: "G",
-  unpleasant: "U",
-  rainbow: "R",
-  timey_wimey: "TW",
-};
+const EDITION_ABBR = Object.fromEntries(
+  Object.entries(allEditions).map(([key, val]) => [
+    key,
+    val.abbr || key.charAt(0).toUpperCase(),
+  ]),
+);
 const RARITY_ORDER = ["legendary", "epic", "rare", "uncommon", "common"];
 const CARDS_PER_PAGE = 30;
 const CARDS_PER_SET_PAGE = 25;
@@ -236,9 +235,7 @@ function applyEditionEffect(ctx, edition, width, height) {
     ctx.globalCompositeOperation = "multiply";
     ctx.fillStyle = swirlGrad;
     ctx.fillRect(0, 0, width, height);
-  }
-
-  if (edition === "foil") {
+  } else if (edition === "foil") {
     const silverGradient = ctx.createLinearGradient(0, 0, width, height);
     silverGradient.addColorStop(0, "#D3D3D3");
     silverGradient.addColorStop(0.25, "#555555");
@@ -248,6 +245,16 @@ function applyEditionEffect(ctx, edition, width, height) {
     ctx.lineWidth = 18;
     ctx.strokeStyle = silverGradient;
     ctx.strokeRect(9, 9, width - 18, height - 18);
+  } else if (edition === "halloween") {
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, "#f1a604");
+    gradient.addColorStop(0.25, "#f87f1d");
+    gradient.addColorStop(0.5, "#e95e0d");
+    gradient.addColorStop(0.75, "#fff048");
+    gradient.addColorStop(1, "#dd890b");
+    ctx.globalCompositeOperation = "overlay";
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
   }
 }
 
@@ -755,13 +762,9 @@ function formatEditionBreakdown(editions) {
 function buildCollectionGrid(pageCards) {
   if (!pageCards.length) return "No cards found.";
 
-  const multiSet = new Set(pageCards.map((c) => c.setId)).size > 1;
-
   return pageCards
     .map((c) => {
-      const idx = multiSet
-        ? `${c.setId}-${String(getCardIndex(c.set, c.cardId)).padStart(2, "0")}`
-        : `#${String(getCardIndex(c.set, c.cardId)).padStart(2, "0")}`;
+      const idx = `${c.setId}-${String(getCardIndex(c.set, c.cardId)).padStart(2, "0")}`;
       const editions = formatEditionBreakdown(c.editions);
       return `**${idx}** ${c.card.name} - ${titleCase(c.card.rarity)} - ${c.total} ${c.total === 1 ? "copy" : "copies"} (${editions})`;
     })
@@ -800,6 +803,7 @@ function calculateStats(user, setId) {
     gold_cards: 0,
     unpleasant_cards: 0,
     rainbow_cards: 0,
+    event_cards_owned: 0,
     trades_completed: user.trades_completed || 0,
     packs_opened: Object.values(user.packs_opened || {}).reduce(
       (a, b) => a + b,
@@ -825,6 +829,8 @@ function calculateStats(user, setId) {
       if (ed === "gold") stats.gold_cards += count;
       if (ed === "unpleasant") stats.unpleasant_cards += count;
       if (ed === "rainbow") stats.rainbow_cards += count;
+      if (eventEditionTable[ed] && ed !== "timey_wimey")
+        stats.event_cards_owned += count;
     }
 
     for (const sid of Object.keys(setsConfig)) {
@@ -984,7 +990,7 @@ async function buildProfileEmbed(target, user) {
       return `**${i + 1}.** ${f.card_id} - ${getEditionName(f.edition)}`;
     });
     embed.addFields({
-      name: `⭐ Favourites (${favourites.length}/10)`,
+      name: `⭐ Favourites`,
       value: favLines.join("\n"),
       inline: false,
     });
@@ -5194,9 +5200,9 @@ module.exports = {
         const user = loadUser(target.id);
         const stats = calculateStats(user);
 
-        const lines = Object.entries(STAT_NAMES).map(
-          ([key, label]) => `**${label}:** ${stats[key] || 0}`,
-        );
+        const lines = Object.entries(STAT_NAMES)
+          .filter(([key]) => stats[key] > 0)
+          .map(([key, label]) => `**${label}:** ${stats[key]}`);
 
         const embed = new EmbedBuilder()
           .setColor(0x2b2d31)

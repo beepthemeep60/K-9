@@ -679,7 +679,7 @@ client.on("messageCreate", async function (message) {
             } catch {}
             mult += (dailyStreak || 0) * 0.025;
 
-            // Event winner role - 4x boost
+            // Event winner role - 4x (+300%) boost
             try {
               const ewRolePath = path.join(
                 __dirname,
@@ -741,7 +741,9 @@ client.on("messageCreate", async function (message) {
                 oldLevel,
                 season,
               );
-              for (const lvl of crossedLevels) {
+              const MAX_LEVELS_PER_MSG = 1;
+              const cappedLevels = crossedLevels.slice(0, MAX_LEVELS_PER_MSG);
+              for (const lvl of cappedLevels) {
                 const isDefaultReward =
                   !season.alternate_rewards?.[String(lvl)];
                 const reward = isDefaultReward
@@ -841,9 +843,9 @@ client.on("messageCreate", async function (message) {
                 } catch {}
               }
 
-              seasonData.level = newLevel;
+              seasonData.level = cappedLevels[cappedLevels.length - 1];
               if (!seasonData.claimed_levels) seasonData.claimed_levels = [];
-              seasonData.claimed_levels.push(...crossedLevels);
+              seasonData.claimed_levels.push(...cappedLevels);
             } else if (newLevel < oldLevel) {
               // Correct inflated level (e.g. after xp_per_level change)
               seasonData.level = newLevel;

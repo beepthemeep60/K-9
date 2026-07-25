@@ -1,10 +1,12 @@
 {
   "timey_wimey": {
     "display_name": "Timey Wimey",
+    "abbr": "TW",
     "weight": 0
   },
   "halloween": {
     "display_name": "Halloween",
-    "weight": 15
+    "abbr": "H",
+    "weight": 5
   }
 }

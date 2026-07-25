@@ -110,7 +110,7 @@
         "rewards": [{ "type": "standard_pack", "amount": 5 }]
       },
       {
-        "name": "Gold Rush",
+        "name": "Mega Gold Rush",
         "stat": "gold_cards",
         "threshold": 50,
         "description": "Own 50 Gold Electric Boogaloo cards",

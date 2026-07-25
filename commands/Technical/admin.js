@@ -238,6 +238,28 @@ module.exports = {
                 .setDescription("File to upload")
                 .setRequired(true),
             ),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("cardbulkreplace")
+            .setDescription("Replace all card user data files from a zip")
+            .addAttachmentOption((o) =>
+              o
+                .setName("upload")
+                .setDescription("Zip file containing JSON user data files")
+                .setRequired(true),
+            ),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("battlebulkreplace")
+            .setDescription("Replace all battle pass user data files from a zip")
+            .addAttachmentOption((o) =>
+              o
+                .setName("upload")
+                .setDescription("Zip file containing JSON user data files")
+                .setRequired(true),
+            ),
         ),
     ),
 
@@ -1304,6 +1326,90 @@ module.exports = {
           });
         } catch (err) {
           await interaction.editReply({ content: `Failed: ${err.message}` });
+        }
+        return;
+      }
+
+      if (subcommand === "cardbulkreplace" || subcommand === "battlebulkreplace") {
+        const upload = interaction.options.getAttachment("upload");
+        const targetDir = subcommand === "cardbulkreplace"
+          ? "tradingCards/data/users"
+          : "battlePass/data/users";
+        const typeLabel = subcommand === "cardbulkreplace" ? "Card" : "Battle pass";
+
+        await interaction.deferReply({ flags: 64 });
+
+        try {
+          const res = await fetch(upload.url);
+          const buffer = Buffer.from(await res.arrayBuffer());
+          const AdmZip = require("adm-zip");
+          const zip = new AdmZip(buffer);
+          const entries = zip.getEntries();
+
+          const jsonFiles = entries.filter(
+            (e) => e.entryName.endsWith(".json") && !e.entryName.includes("/"),
+          );
+
+          if (jsonFiles.length === 0) {
+            await interaction.editReply({
+              content: "No JSON files found in the zip. Expected a flat structure with `.json` files at the root.",
+            });
+            return;
+          }
+
+          const confirmRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId("confirm_bulk_replace")
+              .setLabel(`Replace ${jsonFiles.length} files`)
+              .setStyle(ButtonStyle.Danger),
+            new ButtonBuilder()
+              .setCustomId("cancel_bulk_replace")
+              .setLabel("Cancel")
+              .setStyle(ButtonStyle.Secondary),
+          );
+
+          await interaction.editReply({
+            content: `This will **delete all existing files** in \`${targetDir}/\` and replace them with **${jsonFiles.length} files** from the zip.\n\nAre you sure?`,
+            components: [confirmRow],
+          });
+
+          const confirmation = await interaction.channel.awaitMessageComponent({
+            filter: (i) => i.user.id === interaction.user.id,
+            time: 30000,
+          });
+
+          if (confirmation.customId === "cancel_bulk_replace") {
+            await confirmation.update({ content: "Cancelled.", components: [] });
+            return;
+          }
+
+          await confirmation.update({ content: `Replacing ${jsonFiles.length} files...`, components: [] });
+
+          const fs = require("fs");
+          const path = require("path");
+          const targetPath = path.resolve(targetDir);
+          const existingFiles = fs.readdirSync(targetPath);
+          for (const file of existingFiles) {
+            fs.unlinkSync(path.join(targetPath, file));
+          }
+
+          let written = 0;
+          for (const entry of jsonFiles) {
+            const content = entry.getData().toString("utf8");
+            const filePath = path.join(targetPath, entry.name);
+            fs.writeFileSync(filePath, content, "utf8");
+            written++;
+          }
+
+          await interaction.editReply({
+            content: `${typeLabel} bulk replace complete. Deleted **${existingFiles.length}** old files, wrote **${written}** new files.`,
+            components: [],
+          });
+        } catch (err) {
+          await interaction.editReply({
+            content: `Failed: ${err.message}`,
+            components: [],
+          });
         }
         return;
       }

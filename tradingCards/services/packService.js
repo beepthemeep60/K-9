@@ -3,7 +3,9 @@ const path = require("path");
 const setsConfig = require("../data/config/sets.json");
 
 const RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary"];
-const EDITION_ORDER = ["basic", "foil", "gold", "unpleasant", "rainbow"];
+const editionTable = require("../data/config/editions.json");
+const eventEditionTable = require("../data/config/event_editions.json");
+const EDITION_ORDER = Object.keys({ ...editionTable, ...eventEditionTable });
 
 function getRarityRank(rarity) {
   return RARITY_ORDER.indexOf(rarity);

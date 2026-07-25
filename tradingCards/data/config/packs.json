@@ -82,14 +82,14 @@
     "fixed_cards": ["01085"],
     "emoji": "👽",
     "description": "Probably the most OP pack that will ever be added",
-    "set_restriction": ["01"]
+    "set_restriction": ["02"]
   },
   "legacy_pack": {
     "cards_per_pack": 15,
     "guaranteed_min_rarity": "epic",
     "guaranteed_min_edition": "timey_wimey",
     "emoji": "⏳",
-    "description": "15 cards from ANY past set - 100% chance to have Timey Wimey edition with a purple swirl effect!",
+    "description": "15 cards from ANY past set - 100% chance to have the Timey Wimey edition & the final card is guaranteed to be epic or better!",
     "cover_overlay": "#9933ff",
     "tiers": {
       "common": { "weight": 500 },
@@ -106,7 +106,7 @@
     "guaranteed_min_rarity": "common",
     "guaranteed_min_edition": "halloween",
     "emoji": "🎃",
-    "description": "PLACEHOLDER",
+    "description": "Guaranteed halloween edition card!",
     "cover_overlay": "#F58727",
     "tiers": {
       "common": { "weight": 500 },
@@ -114,6 +114,7 @@
       "rare": { "weight": 50 },
       "epic": { "weight": 15 },
       "legendary": { "weight": 1 }
-    }
+    },
+    "set_restriction": ["03"]
   }
 }
