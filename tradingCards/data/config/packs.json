@@ -82,7 +82,7 @@
     "fixed_cards": ["01085"],
     "emoji": "👽",
     "description": "Probably the most OP pack that will ever be added",
-    "set_restriction": ["02"]
+    "set_restriction": ["01"]
   },
   "legacy_pack": {
     "cards_per_pack": 15,
