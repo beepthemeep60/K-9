@@ -68,21 +68,27 @@ function saveUser(user) {
 
 function getLevelFromXp(xp, season) {
   const xpPerLevel = season.xp_per_level || 100;
-  const level = Math.floor(xp / xpPerLevel);
-  return Math.min(level, 100);
+  const rawLevel = Math.floor(xp / xpPerLevel);
+  if (rawLevel <= 100) return rawLevel;
+  const bonusXp = xp - 100 * xpPerLevel;
+  const bonusLevel = Math.floor(bonusXp / (xpPerLevel * 10));
+  return 100 + bonusLevel;
 }
 
 function getTotalXpForLevel(level, season) {
   const xpPerLevel = season.xp_per_level || 100;
-  return level * xpPerLevel;
+  if (level <= 100) return level * xpPerLevel;
+  return 100 * xpPerLevel + (level - 100) * xpPerLevel * 10;
 }
 
 function getLevelsToProcess(userXp, currentLevel, season) {
   const levels = [];
-  for (let lvl = currentLevel + 1; lvl <= 100; lvl++) {
+  let lvl = currentLevel + 1;
+  while (true) {
     const needed = getTotalXpForLevel(lvl, season);
     if (userXp >= needed) {
       levels.push(lvl);
+      lvl++;
     } else {
       break;
     }

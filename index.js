@@ -508,12 +508,12 @@ client.on("messageCreate", async function (message) {
             if (hasDoubleXpRole) {
               message.channel.send(
                 `<@${userId}> Your pet has come to spend time with you while you chat!\n` +
-                  `Hunger set to 100%. Happiness set to 100%. +200xp gained.`,
+                  `Hunger set to 100%. Happiness set to 100%. +200 pet xp gained.`,
               );
             } else {
               message.channel.send(
                 `<@${userId}> Your pet has come to spend time with you while you chat!\n` +
-                  `Hunger set to 100%. Happiness set to 100%. +100xp gained.`,
+                  `Hunger set to 100%. Happiness set to 100%. +100 pet xp gained.`,
               );
             }
           }

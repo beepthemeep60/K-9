@@ -109,10 +109,7 @@ function getMultipliers(member, dailyStreak) {
 function buildLevelEmbed(seasonData, season, member) {
   const level = getLevelFromXp(seasonData.xp, season);
   const currentLevelXp = level === 0 ? 0 : getTotalXpForLevel(level, season);
-  const nextLevelXp =
-    level >= 100
-      ? getTotalXpForLevel(100, season)
-      : getTotalXpForLevel(level + 1, season);
+  const nextLevelXp = getTotalXpForLevel(level + 1, season);
   const xpInLevel = seasonData.xp - currentLevelXp;
   const xpNeeded = nextLevelXp - currentLevelXp;
   const progress =
@@ -164,7 +161,11 @@ function buildLevelEmbed(seasonData, season, member) {
   const embed = new EmbedBuilder()
     .setColor(0x2b2d31)
     .setTitle(`🎖️ ${season.name}`)
-    .setDescription(level >= 100 ? "🎉 **Max Level!**" : `Level **${level}**`)
+    .setDescription(
+      level >= 100
+        ? `🎉 **Max Level: 100 (+${level - 100} bonus levels)**`
+        : `Level **${level}**`,
+    )
     .addFields(
       {
         name: "XP",
@@ -172,7 +173,10 @@ function buildLevelEmbed(seasonData, season, member) {
         inline: false,
       },
       {
-        name: "Progress to Next Level:",
+        name:
+          level >= 100
+            ? "Progress to Next Bonus Level:"
+            : "Progress to Next Level:",
         value: `${bar} ${progress}%`,
         inline: false,
       },

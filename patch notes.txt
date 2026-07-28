@@ -1,3 +1,3 @@
-K-9 Version 11.7 notes
+K-9 Version 11.8 notes
 ---------------------
-card rollback
+Added bonus levels past 100
