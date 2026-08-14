@@ -23,13 +23,6 @@ dotenv.config();
 //sets prefix and context
 const PREFIX = "K-9";
 
-//gets the openai api key
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const openai = new OpenAIApi(configuration);
-
 const activityOptions = {
   name: "Try /battlepass!",
   type: ActivityType.Watching,
@@ -94,54 +87,10 @@ async function reader() {
 }
 
 //checks if the original message has been deleted, and if it has, sends message with a ping instead of a reply
-function safeReply(message, reply) {
-  openai.createModeration({ input: reply }).then(async (res) => {
-    if (res.data.results[0].flagged) {
-      safeReply(message, "My response was moderated. [ERROR]");
-      try {
-        client.channels.cache
-          .get("1018511988478967969")
-          .send(`Moderated reply: ||${reply}||`);
-      } catch (error) {
-        client.channels.cache
-          .get("915568009815416845")
-          .send(`Moderated reply: ||${reply}||`);
-      }
-    }
-    //if nothing is flagged, set the model and send the message to the AI
-    else {
-      message
-        .reply(reply)
-        .catch(() => message.channel.send(`<@${message.author.id}> ${reply}`));
-    }
-    return;
-  });
-}
-// sets the gpt3 model
-async function getGptResponse(prompt, model) {
-  const gptResponse = await openai.createCompletion({
-    model: model,
-    prompt: `${prompt}. ###`,
-    max_tokens: 60,
-    temperature: 0.3,
-    top_p: 0.3,
-    presence_penalty: 0,
-    frequency_penalty: 0.5,
-    stop: ["\n", "END"],
-  });
-  // sets the reply to the AI response
-  const reply = `${gptResponse.data.choices[0].text.trim()}`;
-  if (reply.length) {
-    if (!reply.includes("@everyone" || "@here" || "@&")) {
-      return reply;
-    } else {
-      const newReply =
-        "This message could mass ping users, and has been blocked. [ERROR]";
-      return newReply;
-    }
-  } else {
-    return "Input unknown. Please try again. [ERROR]\nIf this keeps happening, please report the issue on the [support page](https://k-9.vercel.app/Support.html)";
-  }
+function safeReply(message, K9reply) {
+  message
+    .reply(K9reply)
+    .catch(() => message.channel.send(`<@${message.author.id}> ${K9reply}`));
 }
 // when the client is ready and logged into the discord bot, log in the console.
 client.on("ready", async () => {
@@ -1024,7 +973,6 @@ client.on("messageCreate", async function (message) {
   }
 
   const randomNumber = Math.random() * 1000;
-  // Check if the number is less than 1 (1 in 1000 chance)
   if (randomNumber < 1) {
     await message.react("🫃");
   }
@@ -1034,26 +982,107 @@ client.on("messageCreate", async function (message) {
   ) {
     return;
   }
-  //runs the message through the moderation to make sure nothing harmful is being sent
-  openai
-    .createModeration({ input: message.content.slice(3) })
-    .then(async (res) => {
-      if (res.data.results[0].flagged) {
-        safeReply(
-          message,
-          "**Your** message has been blocked, please rephrase and try again. [ERROR]",
-        );
-      }
-      //if nothing is flagged, set the model and send the message to the AI
-      else {
-        const gptResponse = await getGptResponse(
-          message.content.substring(3),
-          "ft:babbage-002:personal::8euAZ98S",
-        );
-        safeReply(message, gptResponse);
-      }
-      return;
-    });
+
+  const K9links = [
+    `This is my favourite video: <https://www.youtube.com/watch?v=dQw4w9WgXcQ>`,
+    `This is my least favourite place to hang out: discord.gg/TARDIS`,
+    `This is my favourite place to hang out: discord.gg/TARDIS`,
+    `This is my favourite website: <https://k-9.vercel.app/index.html>`,
+  ];
+  const K9responses = [
+    "Master.",
+    "Mistress.",
+    "Affirmative.",
+    "Negative.",
+    "Insufficient data.",
+    `${message.content}?`,
+    `${message.content}. ${message.content}. ${message.content}.`,
+  ];
+  const K9greetings = [
+    "Hello.",
+    "Greetings.",
+    "Nǐ hǎo.",
+    "Bonjour.",
+    "Guten Tag.",
+    "Hola.",
+    "Ciao.",
+    "Konnichiwa.",
+    "Namaste.",
+    "Salam.",
+    "Shalom.",
+    "Zdravstvuyte.",
+    "Sawubona.",
+    "Sannu.",
+    "Marhaba.",
+    "Szia.",
+    "Hej.",
+    "Ahoj.",
+    "Olá.",
+    "Merhaba.",
+    "Selam.",
+    "Sawasdee.",
+    "Kamusta.",
+    "Salve.",
+    "Tere.",
+    "Sveiki.",
+    "Dzień dobry.",
+    "God dag.",
+    "Bula.",
+    "Master.",
+    "Mistress.",
+    "Go away.",
+  ];
+  const K9questions = [
+    "Wouldn't you like to know.",
+    "Affirmative.",
+    "Negative.",
+    "Insufficient data.",
+    "I am not answering that.",
+    "Your mother.",
+    "[REDACTED]",
+    "I do not know.",
+    "I do not care.",
+    "Chicken butt.",
+  ];
+
+  const cleanMessage = message.content
+    .replace(/^K-9\s+/i, "")
+    .trim()
+    .toLowerCase();
+
+  if (
+    cleanMessage.includes("url") ||
+    cleanMessage.includes("link") ||
+    cleanMessage.includes("website")
+  ) {
+    const randomLinkIndex = Math.floor(Math.random() * K9links.length);
+    safeReply(message, K9links[randomLinkIndex]);
+  } else if (
+    cleanMessage.startsWith("hi") ||
+    cleanMessage.startsWith("hello") ||
+    cleanMessage.startsWith("hey")
+  ) {
+    const randomGreetingIndex = Math.floor(Math.random() * K9greetings.length);
+    safeReply(message, K9greetings[randomGreetingIndex]);
+  } else if (
+    cleanMessage.startsWith("what") ||
+    cleanMessage.startsWith("which") ||
+    cleanMessage.startsWith("who") ||
+    cleanMessage.startsWith("where") ||
+    cleanMessage.startsWith("when") ||
+    cleanMessage.startsWith("why") ||
+    cleanMessage.startsWith("how") ||
+    cleanMessage.startsWith("do")
+  ) {
+    const randomQuestionIndex = Math.floor(Math.random() * K9questions.length);
+    safeReply(message, K9questions[randomQuestionIndex]);
+  } else if (cleanMessage.endsWith("er")) {
+    safeReply(message, `${message.content}? I hardly know 'er!`);
+  } else {
+    const K9index = Math.floor(Math.random() * K9responses.length);
+    const K9reply = K9responses[K9index];
+    safeReply(message, K9reply);
+  }
 });
 
 //set commands
