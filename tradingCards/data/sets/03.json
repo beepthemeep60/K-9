@@ -1,0 +1,456 @@
+{
+  "set_id": "03",
+  "set_name": "Spooky Season",
+  "cards": {
+    "03001": {
+      "name": "Nosferatu",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"And when he crossed the bridge, the phantoms came to meet Him.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03001.png"
+    },
+    "03002": {
+      "name": "Guillermo Del Toro's: Frankenstein",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"There was silence again. And then... merciless life.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03002.png"
+    },
+    "03003": {
+      "name": "Scream",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"There are certain RULES that one must abide by in order to successfully survive a horror movie...\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03003.png"
+    },
+    "03004": {
+      "name": "The Thing",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"The Ultimate In Alien Terror.\" (Best Movie Ever - Maze)",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03004.png"
+    },
+    "03005": {
+      "name": "Re-Animator",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"It Will Scare You To Pieces.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03005.png"
+    },
+    "03006": {
+      "name": "Halloween",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"The Night HE Came Home!\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03006.png"
+    },
+    "03007": {
+      "name": "Dawn Of The Dead",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"When there is no more room in Hell, The dead will walk the Earth.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03007.png"
+    },
+    "03008": {
+      "name": "Final Destination",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"In death there are no accidents, no coincidences, no mishaps, and NO escapes.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03008.png"
+    },
+    "03009": {
+      "name": "Saw",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"I want to play a game.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03009.png"
+    },
+    "03010": {
+      "name": "Psycho",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"I'm not even going to swat that fly. I hope they are watching... they'll see. They'll see and they'll know, and they'll say, 'Why, she wouldn't even harm a fly...'\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03010.png"
+    },
+    "03011": {
+      "name": "Evil Dead",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"Groovy.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03011.png"
+    },
+    "03012": {
+      "name": "A Nightmare On Elm Street",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"If Nancy Doesn't Wake Up Screaming, She Won't Wake Up At All...\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03012.png"
+    },
+    "03013": {
+      "name": "Friday The 13th: Jason Lives",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"He's Back! He's the man behind the mask!\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03013.png"
+    },
+    "03014": {
+      "name": "Misery",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"I'm your number one fan. There's nothing to worry about. You're going to be just fine...\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03014.png"
+    },
+    "03015": {
+      "name": "An American Werewolf In London",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"I can assure you that this is not in the least bit amusing.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03015.png"
+    },
+    "03016": {
+      "name": "Shaun Of The Dead",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"You've got red on you.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03016.png"
+    },
+    "03017": {
+      "name": "Alien",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"This is Ripley, last survivor of the Nostromo, signing off.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03017.png"
+    },
+    "03018": {
+      "name": "Hellraiser",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"Jesus... Wept...\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03018.png"
+    },
+    "03019": {
+      "name": "The Fly",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"No. Be afraid. Be very afraid.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03019.png"
+    },
+    "03020": {
+      "name": "The Bride Of Chucky",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"For God's sake, Chucky, drag yourself into the '90s. Stabbings went out with Bundy and Dahmer, you look like Martha Stewart with that thing.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03020.png"
+    },
+    "03021": {
+      "name": "Gremlins",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"This is the most important rule, the rule you can never forget. No matter how much he cries, no matter how much he begs... NEVER feed him after midnight.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03021.png"
+    },
+    "03022": {
+      "name": "Backrooms",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"Imagine describing a dog to someone who's never seen one before; and then asking them to draw one. It'll look similar, but the devil is in the details.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03022.png"
+    },
+    "03023": {
+      "name": "Killer Klowns From Outer Space",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"What're ya gonna do with those *pies*, boys.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03023.png"
+    },
+    "03024": {
+      "name": "The Texas Chainsaw Massacre",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"I just can't take no pleasure in killing. There's just some things you gotta do. Don't mean you have to like it.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03024.png"
+    },
+    "03025": {
+      "name": "Candyman",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"I am the writing on the wall. The whisper in the classroom. Without these things, I am nothing. So now, I must shed innocent blood. Come with me.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03025.png"
+    },
+    "03026": {
+      "name": "Obsession",
+      "type": "Horror Movie",
+      "rarity": "common",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "I cannot emphasise this enough, to the point i'm not even gonna have a quote from the movie here, FUCK Bear.",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03026.png"
+    },
+    "03027": {
+      "name": "Resident Evil",
+      "type": "Horror Games",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"Enter The Survival Horror.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03027.png"
+    },
+    "03028": {
+      "name": "Dead By Daylight",
+      "type": "Horror Game",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"Death Is Not An Escape.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03028.png"
+    },
+    "03029": {
+      "name": "Silent Hill",
+      "type": "Horror Game",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"In my restless dreams, I see that town. Silent Hill.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03029.png"
+    },
+    "03030": {
+      "name": "Castlevania: Symphony Of The Night",
+      "type": "Horror Game",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"What is a man... A MISERABLE PILE OF SECRETS! BUT ENOUGH TALK. HAVE AT THEE!\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03030.png"
+    },
+    "03031": {
+      "name": "Five Nights At Freddy's",
+      "type": "Horror Game",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"*iTsmEItsMEitSMeITSMEITsMEitsME*\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03031.png"
+    },
+    "03032": {
+      "name": "Lethal Company",
+      "type": "Horror Game",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"You're in deep. Access File: Sigurd\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03032.png"
+    },
+    "03033": {
+      "name": "Alan Wake",
+      "type": "Horror Game",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"It's not a lake. It's an ocean.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03033.png"
+    },
+    "03034": {
+      "name": "I Have No Mouth, And I Must Scream",
+      "type": "Horror Game",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"Hate. Let me tell you how much I've come to hate you since I began to live.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03034.png"
+    },
+    "03035": {
+      "name": "Dino Crisis",
+      "type": "Horror Game",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"You're Extinct!\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03035.png"
+    },
+    "03036": {
+      "name": "Clock Tower",
+      "type": "Horror Game",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "*Snip. Snip. Snip.*",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03036.png"
+    },
+    "03037": {
+      "name": "Dead Rising",
+      "type": "Horror Game",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"I've covered wars you know?\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03037.png"
+    },
+    "03038": {
+      "name": "Doki Doki Literature Club",
+      "type": "Horror Game",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "*I gently open the door...*",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03038.png"
+    },
+    "03039": {
+      "name": "Carnevil",
+      "type": "Horror Game",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"Where skeletons rot and corpses fester- Locate the tomb with the skull of a Jester. Feed him a token all shiny and new- It is then that CarnEvil shall return for YOU.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03039.png"
+    },
+    "03040": {
+      "name": "The House Of The Dead",
+      "type": "Horror Game",
+      "rarity": "uncommon",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"It feeds on your fear. Don't go into the house alone!\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03040.png"
+    },
+    "03041": {
+      "name": "Ellen Ripley",
+      "type": "Survivor",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"Get away from her you BITCH!\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03041.png"
+    },
+    "03042": {
+      "name": "Laurie Strode",
+      "type": "Survivor",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"Happy Halloween, Michael.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03042.png"
+    },
+    "03043": {
+      "name": "Tommy Jarvis",
+      "type": "Survivor",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"Jason belongs in hell. I'll see to it that he gets there.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03043.png"
+    },
+    "03044": {
+      "name": "AAAAAAAAAAAAAAAAAA",
+      "type": "Competition Winner",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "Art competition 3rd place winner, by <@1238984813172621345>!",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03044.png"
+    },
+    "03045": {
+      "name": "Vampire 12!",
+      "type": "Competition Winner",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "Art cmpetition 2nd place winner, by <@1119907852635615263>!",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03045.png"
+    },
+    "03046": {
+      "name": "Botiween K-9",
+      "type": "Competition Winner",
+      "rarity": "rare",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "Art competition 1st place winner, by <@394153008054796299>!",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03046.png"
+    },
+    "03047": {
+      "name": "The Xenomorph",
+      "type": "Iconic",
+      "rarity": "epic",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"I admire it's purity. A survivor... unclouded by conscience, remorse, or delusions of morality.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03047.png"
+    },
+    "03048": {
+      "name": "The Shape",
+      "type": "Iconic",
+      "rarity": "epic",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"I met this... six year-old child with this blank, pale, emotionless face; and... the blackest eyes. The Devil's eyes.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03048.png"
+    },
+    "03049": {
+      "name": "The Ghostface Killer",
+      "type": "Iconic",
+      "rarity": "epic",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"What's your favourite scary movie?\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03049.png"
+    },
+    "03050": {
+      "name": "Jason Voorhees",
+      "type": "Featured Card",
+      "rarity": "legendary",
+      "editions": ["basic", "foil", "gold", "unpleasant", "rainbow"],
+      "event_editions": ["halloween"],
+      "description": "\"Ki Ki Ki, Ma Ma Ma.\"",
+      "art_url": "https://k-9.vercel.app/assets/public/cards/03050.png"
+    }
+  }
+}

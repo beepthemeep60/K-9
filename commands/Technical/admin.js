@@ -1,9 +1,11 @@
 const {
   SlashCommandBuilder,
   EmbedBuilder,
+  AttachmentBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  ComponentType,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
 } = require("discord.js");
@@ -23,6 +25,264 @@ const {
 
 const setsConfig = require("../../tradingCards/data/config/sets.json");
 const packsConfig = require("../../tradingCards/data/config/packs.json");
+const eventEditionsConfig = require("../../tradingCards/data/config/event_editions.json");
+
+// Discord cannot restrict a command to a specific user, so every entry point is
+// gated on this id at runtime. Keep it in sync with the bot owner.
+const ADMIN_USER_ID = "1037466389163814932";
+
+const RECAP_RARITY_ORDER = ["legendary", "epic", "rare", "uncommon", "common"];
+// Timey Wimey is deliberately absent: it can roll on any card, is never counted
+// towards set completion, and is excluded from recaps for the same reason.
+const RECAP_EDITIONS = [
+  "rainbow",
+  "unpleasant",
+  ...Object.keys(eventEditionsConfig).filter((e) => e !== "timey_wimey"),
+  "gold",
+  "foil",
+  "basic",
+];
+const RECAP_EDITION_LABELS = {
+  rainbow: "Rainbow",
+  unpleasant: "Unpleasant",
+  gold: "Gold",
+  foil: "Foil",
+  basic: "Basic",
+};
+
+function seasonChoices() {
+  const fs = require("fs");
+  const path = require("path");
+  const { loadSeason } = require("../../battlePass/services/battlePassService");
+  const dir = path.join(__dirname, "../../battlePass/data/seasons");
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".json") && f !== "404.json")
+    .map((f) => f.replace(".json", ""))
+    .sort()
+    .map((id) => {
+      const season = loadSeason(id);
+      return {
+        name: `${season?.name || `Season ${id}`} (${id})`.slice(0, 100),
+        value: id,
+      };
+    });
+}
+
+// One fetch per URL per process. A mass recap asks for the same art repeatedly
+// and the card CDN rate limits hard enough to 403 the whole origin.
+const recapImageCache = new Map();
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Download with a short retry. The CDN answers 403/5xx when it decides a client
+ * is hammering it, which a 60 user recap run easily looks like.
+ */
+async function fetchRecapImage(url, attempts = 3) {
+  if (recapImageCache.has(url)) return recapImageCache.get(url);
+
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const buffer = await fetchImageBuffer(url);
+      recapImageCache.set(url, buffer);
+      return buffer;
+    } catch (err) {
+      lastError = err;
+      if (attempt < attempts) await sleep(attempt * 1000);
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Lifetime collection totals for one set, scoped to a single user.
+ * Timey Wimey copies are excluded everywhere so the numbers add up and match
+ * how set completion is counted elsewhere in the game.
+ */
+function buildRecapStats(user, setId) {
+  const set = resolveSet(setId);
+  const cardIds = new Set(Object.keys(set.cards || {}));
+  const byEdition = Object.fromEntries(RECAP_EDITIONS.map((e) => [e, 0]));
+  const byRarity = Object.fromEntries(RECAP_RARITY_ORDER.map((r) => [r, 0]));
+  const perCard = new Map();
+
+  let totalCards = 0;
+
+  for (const [cardId, editions] of Object.entries(user.collection || {})) {
+    if (!cardIds.has(cardId)) continue;
+    let cardTotal = 0;
+    for (const [edition, count] of Object.entries(editions || {})) {
+      if (edition === "timey_wimey") continue;
+      const amount = (count || 0) > 0 ? count : 0;
+      if (!amount) continue;
+      if (edition in byEdition) byEdition[edition] += amount;
+      cardTotal += amount;
+    }
+    if (!cardTotal) continue;
+    totalCards += cardTotal;
+    perCard.set(cardId, cardTotal);
+
+    const rarity = set.cards[cardId].rarity;
+    if (rarity in byRarity) byRarity[rarity] += cardTotal;
+  }
+
+  let topCardId = null;
+  let topCount = 0;
+  for (const [cardId, count] of perCard) {
+    if (count > topCount || (count === topCount && cardId < topCardId)) {
+      topCardId = cardId;
+      topCount = count;
+    }
+  }
+
+  return {
+    setId,
+    setName: setsConfig[setId]?.name || getSetName(setId, set),
+    emoji: setsConfig[setId]?.emoji || "",
+    totalCards,
+    packsOpened: (user.packs_opened || {})[setId] || 0,
+    byEdition,
+    byRarity,
+    topCard: topCardId
+      ? { ...set.cards[topCardId], count: topCount, id: topCardId }
+      : null,
+  };
+}
+
+/**
+ * Card art is a mix of png, jpg and webp, and the URL extension is not always
+ * trustworthy (some are uppercase .JPG). Discord picks the content type from
+ * the attachment name, so the name has to match the bytes we actually send.
+ */
+function detectImageExtension(buffer, url = "") {
+  const b = buffer;
+  if (b.length > 8 && b[0] === 0x89 && b[1] === 0x50) return "png";
+  if (b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) {
+    return "jpg";
+  }
+  if (
+    b.length > 12 &&
+    b.toString("ascii", 0, 4) === "RIFF" &&
+    b.toString("ascii", 8, 12) === "WEBP"
+  ) {
+    return "webp";
+  }
+  if (
+    b.length > 12 &&
+    b.toString("ascii", 0, 4) === "RIFF" &&
+    b.toString("ascii", 8, 12) === "AVI "
+  ) {
+    return "avi";
+  }
+  if (b.length > 4 && b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) {
+    return "gif";
+  }
+  if (b.length > 12 && b.toString("ascii", 4, 8) === "ftyp") return "avif";
+
+  // Fall back to the URL, lowercased, and finally to png.
+  const ext = (url.split("?")[0].split(".").pop() || "").toLowerCase();
+  return ["png", "jpg", "jpeg", "webp", "gif", "avif"].includes(ext)
+    ? ext
+    : "png";
+}
+
+function fetchImageBuffer(url) {
+  const https = require("https");
+  return new Promise((resolve, reject) => {
+    const request = https.get(
+      url,
+      { headers: { "User-Agent": "Mozilla/5.0" }, timeout: 10_000 },
+      (res) => {
+        if (
+          res.statusCode >= 300 &&
+          res.statusCode < 400 &&
+          res.headers.location
+        ) {
+          res.resume();
+          fetchImageBuffer(res.headers.location).then(resolve, reject);
+          return;
+        }
+        if (res.statusCode !== 200) {
+          res.resume();
+          reject(new Error(`HTTP ${res.statusCode}`));
+          return;
+        }
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => resolve(Buffer.concat(chunks)));
+        res.on("error", reject);
+      },
+    );
+    request.on("error", reject);
+    request.on("timeout", () => {
+      request.destroy();
+      reject(new Error("timed out"));
+    });
+  });
+}
+
+function buildRecapEmbed({ season, seasonId, stats, xp, level, displayName }) {
+  const { EmbedBuilder } = require("discord.js");
+  const embed = new EmbedBuilder()
+    .setColor(0x2b2d31)
+    .setTitle(`${stats.emoji} ${season.name || `Season ${seasonId}`} Recap`)
+    .setDescription(`Your **${stats.setName}** recap is here!`)
+    .addFields(
+      {
+        name: "Season Progress",
+        value: `**${xp.toLocaleString()}** XP\nLevel **${
+          level > 100 ? `100+${level - 100}` : level
+        }**`,
+        inline: true,
+      },
+      {
+        name: "Cards Obtained",
+        value: `**${stats.totalCards.toLocaleString()}**\nPacks opened: **${stats.packsOpened.toLocaleString()}**`,
+        inline: true,
+      },
+      {
+        name: "Most Obtained Card",
+        value: stats.topCard
+          ? `**${stats.topCard.name}**\n**${stats.topCard.count}** copies`
+          : "_No cards owned yet_",
+        inline: true,
+      },
+      {
+        name: "Editions",
+        value:
+          RECAP_EDITIONS.filter((e) => stats.byEdition[e] > 0)
+            .map(
+              (e) =>
+                `**${stats.byEdition[e].toLocaleString()}** ${
+                  RECAP_EDITION_LABELS[e] || titleCase(e)
+                }`,
+            )
+            .join("\n") || "_None_",
+        inline: true,
+      },
+      {
+        name: "Rarities",
+        value:
+          RECAP_RARITY_ORDER.filter((r) => stats.byRarity[r] > 0)
+            .map(
+              (r) =>
+                `**${stats.byRarity[r].toLocaleString()}** ${titleCase(r)}`,
+            )
+            .join("\n") || "_None_",
+        inline: true,
+      },
+    )
+    .setFooter({
+      text: `Remember to run /battlepass to join the next season!`,
+    });
+
+  return embed;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -111,10 +371,39 @@ module.exports = {
         )
         .addSubcommand((sub) =>
           sub
+            .setName("grid")
+            .setDescription(
+              "Render every card in a set (and its cover) to a grid image",
+            )
+            .addStringOption((o) =>
+              o
+                .setName("set")
+                .setDescription("Which set")
+                .setRequired(true)
+                .addChoices(
+                  ...Object.keys(setsConfig)
+                    .sort()
+                    .map((id) => ({ name: getSetName(id), value: id })),
+                ),
+            )
+            .addIntegerOption((o) =>
+              o
+                .setName("columns")
+                .setDescription("How many cards per row (default 10)")
+                .setRequired(false)
+                .setMinValue(1)
+                .setMaxValue(20),
+            ),
+        )
+        .addSubcommand((sub) =>
+          sub
             .setName("circulation")
             .setDescription("Show total cards of each edition in circulation")
             .addStringOption((o) =>
-              o.setName("card").setDescription("Card ID to look up (optional)").setRequired(false),
+              o
+                .setName("card")
+                .setDescription("Card ID to look up (optional)")
+                .setRequired(false),
             ),
         ),
     )
@@ -131,6 +420,45 @@ module.exports = {
               { name: "Enable", value: "enable" },
               { name: "Disable", value: "disable" },
             ),
+        ),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("leaderboard")
+        .setDescription("Show the level leaderboard for the current season")
+        .addIntegerOption((o) =>
+          o
+            .setName("count")
+            .setDescription("How many ranks to show (default 10, max 500)")
+            .setRequired(false)
+            .setMinValue(1)
+            .setMaxValue(500),
+        ),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("recap")
+        .setDescription("DM users a season recap")
+        .addStringOption((o) =>
+          o
+            .setName("season")
+            .setDescription("Season to recap (default: latest)")
+            .setRequired(false)
+            .addChoices(...seasonChoices()),
+        )
+        .addUserOption((o) =>
+          o
+            .setName("user")
+            .setDescription("Only this user (default: everyone)")
+            .setRequired(false),
+        )
+        .addIntegerOption((o) =>
+          o
+            .setName("delay")
+            .setDescription("Seconds between each DM (default 3)")
+            .setRequired(false)
+            .setMinValue(1)
+            .setMaxValue(30),
         ),
     )
     .addSubcommandGroup((group) =>
@@ -253,7 +581,9 @@ module.exports = {
         .addSubcommand((sub) =>
           sub
             .setName("battlebulkreplace")
-            .setDescription("Replace all battle pass user data files from a zip")
+            .setDescription(
+              "Replace all battle pass user data files from a zip",
+            )
             .addAttachmentOption((o) =>
               o
                 .setName("upload")
@@ -266,6 +596,18 @@ module.exports = {
   async autocomplete() {},
 
   async execute(interaction) {
+    // Single gate for every subcommand: give, take, source file writes, recap
+    // DMs and all of it. Checked before any option is read or file touched.
+    if (interaction.user?.id !== ADMIN_USER_ID) {
+      await interaction
+        .reply({
+          content: "You cannot use this command.",
+          flags: 64,
+        })
+        .catch(() => {});
+      return;
+    }
+
     const group = interaction.options.getSubcommandGroup();
     const subcommand = interaction.options.getSubcommand();
 
@@ -273,12 +615,321 @@ module.exports = {
       const state = interaction.options.getString("state");
       const fs = require("fs");
       const path = require("path");
-      const doubleXpPath = path.join(__dirname, "../../battlePass/data/doubleXp.json");
-      fs.writeFileSync(doubleXpPath, JSON.stringify({ enabled: state === "enable" }, null, 2), "utf8");
+      const doubleXpPath = path.join(
+        __dirname,
+        "../../battlePass/data/doubleXp.json",
+      );
+      fs.writeFileSync(
+        doubleXpPath,
+        JSON.stringify({ enabled: state === "enable" }, null, 2),
+        "utf8",
+      );
       await interaction.reply({
         content: `Global double XP has been **${state === "enable" ? "enabled" : "disabled"}**.`,
         flags: 64,
       });
+      return;
+    }
+
+    if (subcommand === "leaderboard") {
+      await interaction.deferReply();
+      const fs = require("fs");
+      const path = require("path");
+      const {
+        getCurrentSeason,
+        getLatestSeasonId,
+        getLevelFromXp,
+      } = require("../../battlePass/services/battlePassService");
+
+      const season = getCurrentSeason();
+      const seasonId = getLatestSeasonId();
+      if (!season || !seasonId) {
+        await interaction.editReply({
+          content: "There is no active Battle Pass season right now.",
+        });
+        return;
+      }
+
+      const usersPath = path.join(__dirname, "../../battlePass/data/users");
+      const entries = [];
+      if (fs.existsSync(usersPath)) {
+        for (const file of fs
+          .readdirSync(usersPath)
+          .filter((f) => f.endsWith(".json"))) {
+          try {
+            const data = JSON.parse(
+              fs.readFileSync(path.join(usersPath, file), "utf8"),
+            );
+            const seasonData = data.seasons?.[seasonId];
+            if (!seasonData || !seasonData.xp) continue;
+            entries.push({
+              userId: data.user_id || file.replace(".json", ""),
+              xp: seasonData.xp,
+              level: getLevelFromXp(seasonData.xp, season),
+            });
+          } catch {}
+        }
+      }
+
+      entries.sort((a, b) => b.level - a.level || b.xp - a.xp);
+
+      const limit = Math.min(
+        interaction.options.getInteger("count") || 10,
+        500,
+      );
+      const ranked = entries.slice(0, limit);
+      if (!ranked.length) {
+        await interaction.editReply({
+          content: `Nobody has entered **${season.name}** yet!`,
+        });
+        return;
+      }
+
+      const names = new Map();
+      for (const entry of ranked) {
+        const member = interaction.guild.members.cache.get(entry.userId);
+        if (member) {
+          names.set(entry.userId, member.displayName);
+        } else {
+          const user = await interaction.client.users
+            .fetch(entry.userId)
+            .catch(() => null);
+          names.set(entry.userId, user?.username || "Unknown");
+        }
+      }
+
+      const PER_PAGE = 10;
+      const totalPages = Math.max(1, Math.ceil(ranked.length / PER_PAGE));
+      let page = 0;
+
+      const buildLeaderboard = () => {
+        const slice = ranked.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
+        const lines = slice.map((entry, i) => {
+          const rank = page * PER_PAGE + i + 1;
+          const medal =
+            rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : "▫️";
+          // Same level format as /battlepass: bonus levels show as 100+n.
+          const level =
+            entry.level > 100 ? `100+${entry.level - 100}` : `${entry.level}`;
+          return `${medal} **${rank}.** ${names.get(entry.userId)}\nLevel **${level}** · ${entry.xp.toLocaleString()} XP`;
+        });
+
+        const embed = new EmbedBuilder()
+          .setColor(0x2b2d31)
+          .setTitle(`🎖️ ${season.name} — Level Leaderboard`)
+          .setDescription(lines.join("\n\n"))
+          .setFooter({
+            text: `Page ${page + 1}/${totalPages} · ${entries.length} participant${entries.length === 1 ? "" : "s"} · showing top ${ranked.length}`,
+          });
+
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("bplb-left")
+            .setLabel("←")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(page <= 0),
+          new ButtonBuilder()
+            .setCustomId("bplb-right")
+            .setLabel("→")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(page >= totalPages - 1),
+        );
+
+        return { embeds: [embed], components: [row] };
+      };
+
+      const response = await interaction.editReply(buildLeaderboard());
+      const collector = response.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 5 * 60 * 1000,
+      });
+
+      collector.on("collect", async (btn) => {
+        if (btn.user.id !== interaction.user.id) {
+          await btn
+            .reply({
+              content:
+                "Only the person who ran this command can use these buttons.",
+              flags: 64,
+            })
+            .catch(() => {});
+          return;
+        }
+        try {
+          page = Math.max(
+            0,
+            Math.min(
+              totalPages - 1,
+              page + (btn.customId === "bplb-right" ? 1 : -1),
+            ),
+          );
+          await btn.update(buildLeaderboard());
+        } catch {}
+      });
+
+      collector.on("end", async () => {
+        try {
+          const msg = await interaction.fetchReply();
+          await msg.edit({ components: [] });
+        } catch {}
+      });
+      return;
+    }
+
+    if (subcommand === "recap") {
+      const fs = require("fs");
+      const path = require("path");
+      const {
+        loadSeason,
+        getLatestSeasonId,
+        loadUser: loadBpUser,
+        getLevelFromXp,
+      } = require("../../battlePass/services/battlePassService");
+
+      const targetUser = interaction.options.getUser("user");
+      const requestedSeason =
+        interaction.options.getString("season") || getLatestSeasonId();
+      const season = requestedSeason ? loadSeason(requestedSeason) : null;
+
+      if (!season) {
+        await interaction.reply({
+          content: "That season could not be found.",
+          flags: 64,
+        });
+        return;
+      }
+
+      const setId = season.reward_set;
+      if (!setId || !setsConfig[setId]) {
+        await interaction.reply({
+          content: `**${season.name || requestedSeason}** has no card set attached, so there is nothing to recap.`,
+          flags: 64,
+        });
+        return;
+      }
+
+      const delaySeconds = interaction.options.getInteger("delay") || 3;
+      await interaction.deferReply();
+
+      // Union of both user directories: a recap needs both a season entry and
+      // a card collection, and either side can be missing.
+      const cardUsersPath = path.join(
+        __dirname,
+        "../../tradingCards/data/users",
+      );
+      const bpUsersPath = path.join(__dirname, "../../battlePass/data/users");
+      const ids = new Set();
+      for (const dir of [cardUsersPath, bpUsersPath]) {
+        if (!fs.existsSync(dir)) continue;
+        for (const file of fs
+          .readdirSync(dir)
+          .filter((f) => f.endsWith(".json"))) {
+          ids.add(file.replace(".json", ""));
+        }
+      }
+      const userIds = targetUser ? [targetUser.id] : [...ids];
+
+      const results = { sent: 0, skipped: 0, failed: [] };
+      const total = userIds.length;
+
+      for (let i = 0; i < userIds.length; i++) {
+        const userId = userIds[i];
+        const progress = `[${i + 1}/${total}]`;
+
+        // Never let one bad record abort a 60 user run.
+        try {
+          const bpUser = loadBpUser(userId);
+          const seasonData = bpUser?.seasons?.[requestedSeason];
+          if (!seasonData || !seasonData.xp) {
+            results.skipped++;
+            continue;
+          }
+
+          const user = loadUser(userId);
+          const stats = buildRecapStats(user, setId);
+          const level = getLevelFromXp(seasonData.xp, season);
+          const displayName = targetUser
+            ? targetUser.username
+            : bpUser.username ||
+              (await interaction.client.users
+                .fetch(userId)
+                .then((u) => u.username)
+                .catch(() => userId));
+
+          const embed = buildRecapEmbed({
+            season,
+            seasonId: requestedSeason,
+            stats,
+            xp: seasonData.xp,
+            level,
+            displayName,
+          });
+
+          const files = [];
+          let attached = false;
+          if (stats.topCard?.art_url) {
+            try {
+              const buffer = await fetchRecapImage(stats.topCard.art_url);
+              const ext = detectImageExtension(buffer, stats.topCard.art_url);
+              files.push(
+                new AttachmentBuilder(buffer, {
+                  name: `recap-${stats.topCard.id}.${ext}`,
+                }),
+              );
+              attached = true;
+            } catch (err) {
+              // Never let a blocked CDN cost the user their recap, and never
+              // hide the failure either.
+              console.warn(
+                `Recap image failed for ${userId} (${stats.topCard.id}): ${err.message}`,
+              );
+            }
+          }
+          if (!attached && stats.topCard?.art_url) {
+            // Discord fetches this through its own image proxy, so a 403 on the
+            // bot's IP cannot hide the card.
+            embed.setImage(stats.topCard.art_url);
+          }
+
+          const dmUser = await interaction.client.users.fetch(userId);
+          await dmUser.send({ embeds: [embed], files });
+          results.sent++;
+        } catch (err) {
+          // 50007 = DMs closed, 10013 = cannot DM this user, anything else is
+          // a data or network problem worth reporting.
+          results.failed.push({
+            userId,
+            reason:
+              err?.code === 50007 ? "DMs closed" : err?.message || "error",
+          });
+        }
+
+        if (i < userIds.length - 1) await sleep(delaySeconds * 1000);
+
+        if (i % 5 === 0 || i === userIds.length - 1) {
+          await interaction
+            .editReply({
+              content: `Sending recaps... ${progress}\nSent **${results.sent}** · skipped **${results.skipped}** · failed **${results.failed.length}**`,
+            })
+            .catch(() => {});
+        }
+      }
+
+      const lines = [
+        `Recap run finished for **${season.name || requestedSeason}** (set ${setId} — ${setsConfig[setId].name}).`,
+        `Sent: **${results.sent}** · no season data: **${results.skipped}** · failed: **${results.failed.length}**`,
+      ];
+      if (results.failed.length) {
+        lines.push(
+          `Could not DM: ${results.failed
+            .slice(0, 20)
+            .map((f) => `<@${f.userId}> (${f.reason})`)
+            .join(", ")}${results.failed.length > 20 ? " …" : ""}`,
+        );
+      }
+      await interaction
+        .editReply({ content: lines.join("\n") })
+        .catch(() => {});
       return;
     }
 
@@ -289,7 +940,10 @@ module.exports = {
       const usersPath = path.join(__dirname, "../../tradingCards/data/users");
       const editionsConfig = require("../../tradingCards/data/config/editions.json");
       const eventEditionsConfig = require("../../tradingCards/data/config/event_editions.json");
-      const allEditionKeys = Object.keys({ ...editionsConfig, ...eventEditionsConfig });
+      const allEditionKeys = Object.keys({
+        ...editionsConfig,
+        ...eventEditionsConfig,
+      });
       const cardId = interaction.options.getString("card");
 
       const counts = {};
@@ -298,10 +952,14 @@ module.exports = {
       let totalUsers = 0;
 
       if (fs.existsSync(usersPath)) {
-        const files = fs.readdirSync(usersPath).filter(f => f.endsWith(".json"));
+        const files = fs
+          .readdirSync(usersPath)
+          .filter((f) => f.endsWith(".json"));
         for (const file of files) {
           try {
-            const data = JSON.parse(fs.readFileSync(path.join(usersPath, file), "utf8"));
+            const data = JSON.parse(
+              fs.readFileSync(path.join(usersPath, file), "utf8"),
+            );
             const collections = cardId
               ? { [cardId]: data.collection?.[cardId] || {} }
               : data.collection || {};
@@ -320,33 +978,55 @@ module.exports = {
 
       let embed;
       if (cardId) {
-        const setFiles = fs.readdirSync(path.join(__dirname, "../../tradingCards/data/sets")).filter(f => f.endsWith(".json"));
+        const setFiles = fs
+          .readdirSync(path.join(__dirname, "../../tradingCards/data/sets"))
+          .filter((f) => f.endsWith(".json"));
         let cardName = cardId;
         for (const sf of setFiles) {
           try {
-            const setData = JSON.parse(fs.readFileSync(path.join(__dirname, "../../tradingCards/data/sets", sf), "utf8"));
-            if (setData.cards?.[cardId]) { cardName = setData.cards[cardId].name; break; }
+            const setData = JSON.parse(
+              fs.readFileSync(
+                path.join(__dirname, "../../tradingCards/data/sets", sf),
+                "utf8",
+              ),
+            );
+            if (setData.cards?.[cardId]) {
+              cardName = setData.cards[cardId].name;
+              break;
+            }
           } catch {}
         }
         embed = new EmbedBuilder()
           .setColor(0x2b2d31)
           .setTitle(`📊 Card Circulation — ${cardId}`)
-          .setDescription(`**${cardName}**\n**Total copies:** ${totalCards.toLocaleString()}\n**Owners:** ${totalUsers}`)
+          .setDescription(
+            `**${cardName}**\n**Total copies:** ${totalCards.toLocaleString()}\n**Owners:** ${totalUsers}`,
+          )
           .addFields(
-            ...allEditionKeys.filter(ed => counts[ed] > 0).map(ed => ({
-              name: (editionsConfig[ed]?.display_name || eventEditionsConfig[ed]?.display_name || ed),
-              value: `**${counts[ed].toLocaleString()}** copies`,
-              inline: true,
-            })),
+            ...allEditionKeys
+              .filter((ed) => counts[ed] > 0)
+              .map((ed) => ({
+                name:
+                  editionsConfig[ed]?.display_name ||
+                  eventEditionsConfig[ed]?.display_name ||
+                  ed,
+                value: `**${counts[ed].toLocaleString()}** copies`,
+                inline: true,
+              })),
           );
       } else {
         embed = new EmbedBuilder()
           .setColor(0x2b2d31)
           .setTitle("📊 Card Circulation")
-          .setDescription(`**Total cards in circulation:** ${totalCards.toLocaleString()}\n**Users with cards:** ${totalUsers}`)
+          .setDescription(
+            `**Total cards in circulation:** ${totalCards.toLocaleString()}\n**Users with cards:** ${totalUsers}`,
+          )
           .addFields(
-            ...allEditionKeys.map(ed => ({
-              name: (editionsConfig[ed]?.display_name || eventEditionsConfig[ed]?.display_name || ed),
+            ...allEditionKeys.map((ed) => ({
+              name:
+                editionsConfig[ed]?.display_name ||
+                eventEditionsConfig[ed]?.display_name ||
+                ed,
               value: `**${counts[ed].toLocaleString()}** cards`,
               inline: true,
             })),
@@ -420,7 +1100,9 @@ module.exports = {
         const selection = await setMsg.awaitMessageComponent({
           filter: (i) =>
             i.user.id === interaction.user.id &&
-            (i.customId === setIdPicker || i.customId === legacyGiveId || i.customId === cancelId),
+            (i.customId === setIdPicker ||
+              i.customId === legacyGiveId ||
+              i.customId === cancelId),
           time: 60000,
         });
         if (selection.customId === cancelId) {
@@ -433,7 +1115,9 @@ module.exports = {
         }
         if (selection.customId === legacyGiveId) {
           targetSetId = setIds[0];
-          targetPackType = Object.keys(packsConfig).find((pt) => packsConfig[pt]?.legacy) || "legacy_pack";
+          targetPackType =
+            Object.keys(packsConfig).find((pt) => packsConfig[pt]?.legacy) ||
+            "legacy_pack";
           await selection.deferUpdate();
         } else {
           targetSetId = selection.values[0];
@@ -1236,6 +1920,155 @@ module.exports = {
       return;
     }
 
+    if (subcommand === "grid") {
+      const { createCanvas, loadImage } = require("@napi-rs/canvas");
+      const https = require("https");
+      const setId = interaction.options.getString("set");
+      const requestedColumns = interaction.options.getInteger("columns") || 10;
+
+      await interaction.deferReply({ flags: 64 });
+
+      const set = resolveSet(setId);
+      const setName = getSetName(setId, set);
+      const cardIds = Object.keys(set.cards).sort();
+
+      const PAD = 16;
+      const GAP = 8;
+      const CELL = 140;
+      const LABEL = 26;
+      const HEADER = 56;
+      const COVER_W = 220;
+      const COVER_H = 260;
+      const MAX_HEIGHT = 6000;
+
+      const measure = (cols) => {
+        const rowCount = Math.ceil(cardIds.length / cols);
+        return {
+          width: PAD * 2 + cols * CELL + (cols - 1) * GAP,
+          height:
+            HEADER + COVER_H + rowCount * (CELL + LABEL + GAP) - GAP + PAD,
+        };
+      };
+
+      // Widen the grid rather than producing an image too tall for Discord.
+      let columns = requestedColumns;
+      while (columns < cardIds.length && measure(columns).height > MAX_HEIGHT) {
+        columns++;
+      }
+      const { width, height } = measure(columns);
+
+      const canvas = createCanvas(width, height);
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#2b2d31";
+      ctx.fillRect(0, 0, width, height);
+
+      const drawCover = (img) => {
+        // Covers are portrait, so the box has to be fitted on both axes.
+        const scale = Math.min(COVER_W / img.width, COVER_H / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        ctx.drawImage(img, (width - w) / 2, HEADER + (COVER_H - h) / 2, w, h);
+      };
+
+      const fetchImage = async (url) => {
+        try {
+          const buf = await new Promise((resolve, reject) => {
+            https
+              .get(url, { headers: { "User-Agent": "Mozilla/5.0" } }, (res) => {
+                if (res.statusCode < 200 || res.statusCode >= 300) {
+                  reject(new Error(`HTTP ${res.statusCode}`));
+                  return;
+                }
+                const chunks = [];
+                res.on("data", (c) => chunks.push(c));
+                res.on("end", () => resolve(Buffer.concat(chunks)));
+              })
+              .on("error", reject);
+          });
+          return await loadImage(buf);
+        } catch {
+          return null;
+        }
+      };
+
+      const coverUrl = setsConfig[setId]?.pack_cover_url;
+      if (coverUrl) {
+        const cover = await fetchImage(coverUrl);
+        if (cover) drawCover(cover);
+      }
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 30px 'Segoe UI', sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(
+        `${setsConfig[setId]?.emoji || ""} ${setName} - ${cardIds.length} cards`.trim(),
+        PAD,
+        HEADER / 2,
+      );
+
+      let failed = 0;
+      const BATCH = 8;
+      for (let start = 0; start < cardIds.length; start += BATCH) {
+        const batch = cardIds.slice(start, start + BATCH);
+        const loaded = await Promise.all(
+          batch.map((cardId) => fetchImage(set.cards[cardId]?.art_url)),
+        );
+
+        loaded.forEach((img, i) => {
+          const index = start + i;
+          const cardId = batch[i];
+          const x = PAD + (index % columns) * (CELL + GAP);
+          const y =
+            HEADER +
+            COVER_H +
+            Math.floor(index / columns) * (CELL + LABEL + GAP);
+
+          if (img) {
+            const scale = Math.min(CELL / img.width, CELL / img.height);
+            const w = img.width * scale;
+            const h = img.height * scale;
+            ctx.drawImage(img, x + (CELL - w) / 2, y + (CELL - h) / 2, w, h);
+          } else {
+            failed++;
+            ctx.fillStyle = "#1a1a2e";
+            ctx.fillRect(x, y, CELL, CELL);
+            ctx.fillStyle = "#808080";
+            ctx.font = "14px 'Segoe UI', sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("no art", x + CELL / 2, y + CELL / 2);
+          }
+
+          const cardNumber = getCardIndex(set, cardId);
+          const label = `${cardNumber} · ${set.cards[cardId]?.name || cardId}`;
+          ctx.fillStyle = "#b9bbbe";
+          ctx.font = "16px 'Segoe UI', sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(label.slice(0, 30), x + CELL / 2, y + CELL + LABEL / 2);
+        });
+
+        await new Promise((r) => setImmediate(r));
+      }
+
+      const attachment = new AttachmentBuilder(canvas.toBuffer("image/png"), {
+        name: `set-${setId}-grid.png`,
+      });
+
+      await interaction.editReply({
+        content:
+          `🖼️ **${setName}** — ${cardIds.length} cards in a ${columns}-column grid.` +
+          (columns !== requestedColumns
+            ? `\n-# Bumped to ${columns} columns to keep the image within Discord's size limit.`
+            : "") +
+          (failed
+            ? `\n⚠️ ${failed} card${failed === 1 ? "" : "s"} could not be loaded.`
+            : ""),
+        files: [attachment],
+      });
+      return;
+    }
+
     if (group === "source") {
       const file = interaction.options.getString("file");
 
@@ -1330,12 +2163,17 @@ module.exports = {
         return;
       }
 
-      if (subcommand === "cardbulkreplace" || subcommand === "battlebulkreplace") {
+      if (
+        subcommand === "cardbulkreplace" ||
+        subcommand === "battlebulkreplace"
+      ) {
         const upload = interaction.options.getAttachment("upload");
-        const targetDir = subcommand === "cardbulkreplace"
-          ? "tradingCards/data/users"
-          : "battlePass/data/users";
-        const typeLabel = subcommand === "cardbulkreplace" ? "Card" : "Battle pass";
+        const targetDir =
+          subcommand === "cardbulkreplace"
+            ? "tradingCards/data/users"
+            : "battlePass/data/users";
+        const typeLabel =
+          subcommand === "cardbulkreplace" ? "Card" : "Battle pass";
 
         await interaction.deferReply({ flags: 64 });
 
@@ -1352,7 +2190,8 @@ module.exports = {
 
           if (jsonFiles.length === 0) {
             await interaction.editReply({
-              content: "No JSON files found in the zip. Expected a flat structure with `.json` files at the root.",
+              content:
+                "No JSON files found in the zip. Expected a flat structure with `.json` files at the root.",
             });
             return;
           }
@@ -1379,11 +2218,17 @@ module.exports = {
           });
 
           if (confirmation.customId === "cancel_bulk_replace") {
-            await confirmation.update({ content: "Cancelled.", components: [] });
+            await confirmation.update({
+              content: "Cancelled.",
+              components: [],
+            });
             return;
           }
 
-          await confirmation.update({ content: `Replacing ${jsonFiles.length} files...`, components: [] });
+          await confirmation.update({
+            content: `Replacing ${jsonFiles.length} files...`,
+            components: [],
+          });
 
           const fs = require("fs");
           const path = require("path");

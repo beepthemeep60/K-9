@@ -138,5 +138,61 @@
         "rewards": [{ "type": "premium_pack", "amount": 5 }]
       }
     ]
+  },
+  "03": {
+    "name": "Spooky Season",
+    "emoji": "🎃",
+    "pack_cover_url": "https://k-9.vercel.app/assets/public/pack_covers/03.png",
+    "titles": [
+      {
+        "name": "Third Time's the Charm",
+        "stat": "unique_cards",
+        "threshold": 25,
+        "description": "Own at least 25 unique Spooky Season cards",
+        "rewards": [{ "type": "premium_pack", "amount": 1 }]
+      },
+      {
+        "name": "Spooky Season Master",
+        "stat": "unique_cards",
+        "threshold": 50,
+        "description": "Collect every unique card in Spooky Season set",
+        "rewards": [{ "type": "rainbow_pack", "amount": 1 }]
+      },
+      {
+        "name": "Silver Bullet",
+        "stat": "foil_cards",
+        "threshold": 25,
+        "description": "Own 25 Foil Spooky Season cards",
+        "rewards": [{ "type": "standard_pack", "amount": 5 }]
+      },
+      {
+        "name": "Cyber-Resistant",
+        "stat": "gold_cards",
+        "threshold": 10,
+        "description": "Own 10 Gold Spooky Season cards",
+        "rewards": [{ "type": "standard_pack", "amount": 5 }]
+      },
+      {
+        "name": "Way Up High",
+        "stat": "rainbow_cards",
+        "threshold": 3,
+        "description": "Obtain 3 Rainbow Spooky Season cards",
+        "rewards": [{ "type": "rainbow_pack", "amount": 2 }]
+      },
+      {
+        "name": "Pumpkin Patch",
+        "stat": "event_cards",
+        "threshold": 20,
+        "description": "Own 20 Halloween Edition cards",
+        "rewards": [{ "type": "spooky_pack", "amount": 5 }]
+      },
+      {
+        "name": "Spooky Season Hoarder",
+        "stat": "total_cards",
+        "threshold": 250,
+        "description": "Accumulate a total of 250 Spooky Season cards",
+        "rewards": [{ "type": "premium_pack", "amount": 5 }]
+      }
+    ]
   }
 }

@@ -10,7 +10,6 @@ const {
   BaseSelectMenuBuilder,
   AttachmentBuilder,
 } = require("discord.js");
-const { Configuration, OpenAIApi } = require("openai");
 const readline = require("node:readline/promises");
 const { stdin: input, stdout: output } = require("node:process");
 const fs = require("node:fs");
@@ -24,7 +23,7 @@ dotenv.config();
 const PREFIX = "K-9";
 
 const activityOptions = {
-  name: "Try /battlepass!",
+  name: "🎃 Season 3 live now!",
   type: ActivityType.Watching,
 };
 
@@ -978,25 +977,56 @@ client.on("messageCreate", async function (message) {
   }
   if (
     message.author.bot ||
-    !message.content.toLowerCase().startsWith(PREFIX.toLowerCase())
+    !message.content.toLowerCase().startsWith(PREFIX.toLowerCase()) ||
+    message.author == client.user
   ) {
     return;
   }
 
-  const K9links = [
-    `This is my favourite video: <https://www.youtube.com/watch?v=dQw4w9WgXcQ>`,
-    `This is my least favourite place to hang out: discord.gg/TARDIS`,
-    `This is my favourite place to hang out: discord.gg/TARDIS`,
-    `This is my favourite website: <https://k-9.vercel.app/index.html>`,
-  ];
+  const cleanMessage = message.content
+    .replace(/^K-9\s+/i, "")
+    .trim()
+    .toLowerCase();
+
   const K9responses = [
     "Master.",
     "Mistress.",
     "Affirmative.",
     "Negative.",
     "Insufficient data.",
-    `${message.content}?`,
-    `${message.content}. ${message.content}. ${message.content}.`,
+    `${cleanMessage}?`,
+    `${cleanMessage}. ${cleanMessage}. ${cleanMessage}.`,
+    "How bad can I possibly be?",
+    "I'm so green.",
+    "Do the wordle. Now.",
+    ".evitamriffA",
+    ".evitageN ",
+    "Please stop talking to me.",
+    "Leave me alone.",
+    "Come back later, I'm busy.",
+    "It is certain.",
+    "It is decidedly so.",
+    "Without a doubt.",
+    "Yes definitely.",
+    "You may rely on it.",
+    "As I see it, yes.",
+    "Most likely.",
+    "Outlook good.",
+    "Yes.",
+    "Signs point to yes.",
+    "Reply hazy, try again.",
+    "Ask again later.",
+    "Better not tell you now.",
+    "Cannot predict now.",
+    "Concentrate and ask again.",
+    "Don't count on it.",
+    "My reply is no.",
+    "My sources say no.",
+    "Outlook not so good.",
+    "Very doubtful.",
+    "...",
+    `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+    ` ${(Math.random() * 180 - 90).toFixed(4)}, ${(Math.random() * 360 - 180).toFixed(4)}`,
   ];
   const K9greetings = [
     "Hello.",
@@ -1043,14 +1073,24 @@ client.on("messageCreate", async function (message) {
     "I do not know.",
     "I do not care.",
     "Chicken butt.",
+    "Fuck off",
+    "Your father",
+    "Piss off",
+  ];
+  const K9links = [
+    `This is my favourite video: <https://www.youtube.com/watch?v=dQw4w9WgXcQ>`,
+    `This is my least favourite place to hang out: discord.gg/TARDIS`,
+    `This is my favourite place to hang out: discord.gg/TARDIS`,
+    `This is my favourite website: <https://k-9.vercel.app/index.html>`,
+    `<https://www.youtube.com/watch?v=c6E4IsTvPbI>`,
   ];
 
-  const cleanMessage = message.content
-    .replace(/^K-9\s+/i, "")
-    .trim()
-    .toLowerCase();
-
-  if (
+  if (cleanMessage.match("what five slurs do you know")) {
+    safeReply(
+      message,
+      "This action was banned due to previous issues. Notifying staff...\n\n<@672972385862942747><@672972385862942747><@672972385862942747><@672972385862942747><@672972385862942747><@672972385862942747><@672972385862942747><@672972385862942747><@672972385862942747><@672972385862942747><@672972385862942747><@672972385862942747><@672972385862942747><@672972385862942747><@672972385862942747>",
+    );
+  } else if (
     cleanMessage.includes("url") ||
     cleanMessage.includes("link") ||
     cleanMessage.includes("website")
@@ -1076,12 +1116,15 @@ client.on("messageCreate", async function (message) {
   ) {
     const randomQuestionIndex = Math.floor(Math.random() * K9questions.length);
     safeReply(message, K9questions[randomQuestionIndex]);
-  } else if (cleanMessage.endsWith("er")) {
-    safeReply(message, `${message.content}? I hardly know 'er!`);
   } else {
-    const K9index = Math.floor(Math.random() * K9responses.length);
-    const K9reply = K9responses[K9index];
-    safeReply(message, K9reply);
+    const hardlyknower = Math.floor(Math.random() * 10);
+    if (cleanMessage.endsWith("er") && hardlyknower < 1) {
+      safeReply(message, `${cleanMessage}? I hardly know 'er!`);
+    } else {
+      const K9index = Math.floor(Math.random() * K9responses.length);
+      const K9reply = K9responses[K9index];
+      safeReply(message, K9reply);
+    }
   }
 });
 

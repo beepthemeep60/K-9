@@ -17,6 +17,7 @@ const { createCanvas, loadImage } = require("@napi-rs/canvas");
 const https = require("https");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 
 const {
   loadSet,
@@ -61,6 +62,27 @@ const allEditions = { ...editionTable, ...eventEditionTable };
 
 const EDITION_ORDER = Object.keys(allEditions);
 
+// Display order for the "Highest edition" collection sort, rarest first:
+// Rainbow, Unpleasant, event editions, Gold, Foil, Basic, Timey Wimey.
+// Timey Wimey is last because any card can roll it and it never counts
+// towards set completion, so it isn't a mark of a well-kept collection.
+const EDITION_RANK_ORDER = [
+  "rainbow",
+  "unpleasant",
+  ...EDITION_ORDER.filter((e) => eventEditionTable[e] && e !== "timey_wimey"),
+  "gold",
+  "foil",
+  "basic",
+  "timey_wimey",
+];
+// Any edition added later still gets a rank instead of sorting as unknown.
+EDITION_RANK_ORDER.push(
+  ...EDITION_ORDER.filter((e) => !EDITION_RANK_ORDER.includes(e)),
+);
+const EDITION_RANK = Object.fromEntries(
+  EDITION_RANK_ORDER.map((edition, index) => [edition, index]),
+);
+
 const STAT_NAMES = {
   total_cards: "Total Cards",
   unique_cards: "Unique Cards",
@@ -74,9 +96,9 @@ const STAT_NAMES = {
   gold_cards: "Gold Cards",
   unpleasant_cards: "Unpleasant Cards",
   rainbow_cards: "Rainbow Cards",
-  event_cards_owned: "Event Cards",
-  trades_completed: "\nTrades Completed",
-  packs_opened: "Packs Opened",
+  event_cards: "Event Cards",
+  packs_opened: "\nPacks opened",
+  trades_completed: "Trades Completed",
 };
 const editionChoices = Object.keys(allEditions).map((e) => ({
   name: allEditions[e].display_name || e,
@@ -725,18 +747,19 @@ function sortCollectionCards(cards, sortBy) {
       return a.cardId.localeCompare(b.cardId);
     });
   } else if (sortBy === "highest_edition") {
+    // Show each card's rarest owned edition first, and since EDITION_RANK_ORDER
+    // runs rarest -> most common that means the LOWEST rank wins. Editions we
+    // do not know about (and cards with none) rank last.
+    const UNRANKED = EDITION_RANK_ORDER.length;
+    const rarestRank = (card) => {
+      const owned = Object.entries(card.editions || {})
+        .filter(([, count]) => (count || 0) > 0)
+        .map(([edition]) => EDITION_RANK[edition] ?? UNRANKED);
+      return owned.length ? Math.min(...owned) : UNRANKED;
+    };
     sorted.sort((a, b) => {
-      const aEditions = Object.keys(a.editions || {});
-      const bEditions = Object.keys(b.editions || {});
-      const aMax = Math.max(
-        -1,
-        ...aEditions.map((e) => EDITION_ORDER.indexOf(e)),
-      );
-      const bMax = Math.max(
-        -1,
-        ...bEditions.map((e) => EDITION_ORDER.indexOf(e)),
-      );
-      if (bMax !== aMax) return bMax - aMax;
+      const rDiff = rarestRank(a) - rarestRank(b);
+      if (rDiff !== 0) return rDiff;
       if (a.setId !== b.setId) return a.setId.localeCompare(b.setId);
       return a.cardId.localeCompare(b.cardId);
     });
@@ -803,7 +826,7 @@ function calculateStats(user, setId) {
     gold_cards: 0,
     unpleasant_cards: 0,
     rainbow_cards: 0,
-    event_cards_owned: 0,
+    event_cards: 0,
     trades_completed: user.trades_completed || 0,
     packs_opened: Object.values(user.packs_opened || {}).reduce(
       (a, b) => a + b,
@@ -830,7 +853,7 @@ function calculateStats(user, setId) {
       if (ed === "unpleasant") stats.unpleasant_cards += count;
       if (ed === "rainbow") stats.rainbow_cards += count;
       if (eventEditionTable[ed] && ed !== "timey_wimey")
-        stats.event_cards_owned += count;
+        stats.event_cards += count;
     }
 
     for (const sid of Object.keys(setsConfig)) {
@@ -1015,7 +1038,7 @@ async function buildProfileEmbed(target, user) {
         const fEdition = getEditionName(featured.edition);
         embed.addFields({
           name: "Featured Card",
-          value: `**${fCard.name}** (${fEdition})\n${fSetName}`,
+          value: `**${fCard.name}** - ${fEdition}\n${fSetName}`,
           inline: false,
         });
         if (fCard.art_url) {
@@ -1091,6 +1114,24 @@ async function buildProfileEmbed(target, user) {
   return { embed, files };
 }
 
+const EDIT_PROFILE_HINT =
+  "**Editing Profile...**\nSelect an unlocked title and two stats to feature!\nClick 'Bio / Colour' for more customisation options!\nCheck your progress towards the next title in `/cards set!`";
+
+// Ephemeral follow-ups cannot be edited through the message endpoint (Discord
+// answers 10008 Unknown Message), so the editor is rendered into the original
+// interaction reply and refreshed with interaction.editReply(), which goes
+// through the webhook endpoint and works for ephemeral replies.
+const profileEditorSessions = new Map();
+
+function profileEditButtonRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("edit-profile-btn")
+      .setLabel("Edit Profile")
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
 async function showProfileEditor(interaction) {
   const u = loadUser(interaction.user.id);
   const s = calculateStats(u);
@@ -1107,18 +1148,65 @@ async function showProfileEditor(interaction) {
   const currentTitle = unlocked.length
     ? unlocked[unlocked.length - 1].name
     : null;
-  const titleOpts = [
-    new StringSelectMenuOptionBuilder()
-      .setLabel("None")
-      .setValue("none")
-      .setDefault(!u.title || u.title === "none"),
-    ...unlocked.map((t) =>
-      new StringSelectMenuOptionBuilder()
-        .setLabel(t.name)
-        .setValue(t.name)
-        .setDefault(!u.title ? false : t.name === u.title),
-    ),
-  ];
+  const TITLES_PER_PAGE = 10;
+  const titlePages = Math.max(1, Math.ceil(unlocked.length / TITLES_PER_PAGE));
+  let titlePage = 0;
+
+  function buildTitleRows() {
+    const current = loadUser(interaction.user.id);
+    const paged = unlocked.slice(
+      titlePage * TITLES_PER_PAGE,
+      (titlePage + 1) * TITLES_PER_PAGE,
+    );
+    const options = [
+      ...(titlePage === 0
+        ? [
+            new StringSelectMenuOptionBuilder()
+              .setLabel("None")
+              .setValue("none")
+              .setDefault(!current.title || current.title === "none"),
+          ]
+        : []),
+      ...paged.map((t) =>
+        new StringSelectMenuOptionBuilder()
+          .setLabel(t.name)
+          .setValue(t.name)
+          .setDefault(!current.title ? false : t.name === current.title),
+      ),
+    ];
+
+    const rows = [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("edit-title")
+          .setPlaceholder(
+            titlePages > 1
+              ? `Select title (page ${titlePage + 1}/${titlePages} · ${unlocked.length} unlocked)`
+              : `Select title (${unlocked.length} unlocked)`,
+          )
+          .addOptions(options),
+      ),
+    ];
+
+    if (titlePages > 1) {
+      rows.push(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("edit-title-prev")
+            .setLabel("←")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(titlePage <= 0),
+          new ButtonBuilder()
+            .setCustomId("edit-title-next")
+            .setLabel("→")
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(titlePage >= titlePages - 1),
+        ),
+      );
+    }
+
+    return rows;
+  }
 
   const statKeys = Object.keys(STAT_NAMES).filter(
     (k) => k !== "total_cards" && k !== "unique_cards",
@@ -1148,18 +1236,7 @@ async function showProfileEditor(interaction) {
     ),
   ];
 
-  const editRows = [];
-  if (titleOpts.length) {
-    editRows.push(
-      new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId("edit-title")
-          .setPlaceholder("Select title")
-          .addOptions(titleOpts),
-      ),
-    );
-  }
-  editRows.push(
+  const staticEditRows = [
     new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId("edit-stat1")
@@ -1182,18 +1259,22 @@ async function showProfileEditor(interaction) {
         .setLabel("Done")
         .setStyle(ButtonStyle.Success),
     ),
-  );
+  ];
 
-  const editMsg = await interaction.followUp({
-    flags: 64,
-    content:
-      "**Edit Profile**\nSelect an unlocked title and two stats to feature! Click Bio/Colour for more customisation options!\nCheck your progress to the next title in /cards set!",
-    components: editRows,
-  });
+  function buildEditRows() {
+    return [...buildTitleRows(), ...staticEditRows];
+  }
 
+  const editorToken = crypto.randomBytes(9).toString("hex");
+  const editMsg = await interaction.fetchReply();
   const collector = editMsg.createMessageComponentCollector({
     time: 120_000,
     filter: (i) => i.user.id === interaction.user.id,
+  });
+  profileEditorSessions.set(editorToken, { interaction, collector });
+  await interaction.editReply({
+    content: EDIT_PROFILE_HINT,
+    components: buildEditRows(),
   });
 
   collector.on("collect", async (i) => {
@@ -1203,21 +1284,20 @@ async function showProfileEditor(interaction) {
       async function updateProfileMsg() {
         try {
           const u2 = loadUser(interaction.user.id);
-          const profileReply = await interaction.fetchReply();
-          const target = interaction.user;
-          const { embed, files } = await buildProfileEmbed(target, u2);
-          const editRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId("edit-profile-btn")
-              .setLabel("Edit Profile")
-              .setStyle(ButtonStyle.Secondary),
+          const { embed, files } = await buildProfileEmbed(
+            interaction.user,
+            u2,
           );
-          await profileReply.edit({
+          // Keep the editor open while the embed refreshes behind it.
+          await interaction.editReply({
+            content: EDIT_PROFILE_HINT,
             embeds: [embed],
             files,
-            components: [editRow],
+            components: buildEditRows(),
           });
-        } catch {}
+        } catch (e) {
+          console.error("Profile refresh error:", e);
+        }
       }
 
       if (i.customId === "edit-title") {
@@ -1225,6 +1305,22 @@ async function showProfileEditor(interaction) {
         saveUser(uu);
         await i.deferUpdate();
         await updateProfileMsg();
+      } else if (
+        i.customId === "edit-title-prev" ||
+        i.customId === "edit-title-next"
+      ) {
+        titlePage = Math.max(
+          0,
+          Math.min(
+            titlePages - 1,
+            titlePage + (i.customId === "edit-title-next" ? 1 : -1),
+          ),
+        );
+        await i.deferUpdate();
+        await interaction.editReply({
+          content: EDIT_PROFILE_HINT,
+          components: buildEditRows(),
+        });
       } else if (i.customId === "edit-stat1") {
         uu.stat1 = i.values[0];
         saveUser(uu);
@@ -1236,9 +1332,8 @@ async function showProfileEditor(interaction) {
         await i.deferUpdate();
         await updateProfileMsg();
       } else if (i.customId === "edit-bio-color") {
-        const profileReply = await interaction.fetchReply();
         const modal = new ModalBuilder()
-          .setCustomId(`edit-profile-modal-${profileReply.id}`)
+          .setCustomId(`edit-profile-modal-${editorToken}`)
           .setTitle("Bio & Color");
         modal.addComponents(
           new ActionRowBuilder().addComponents(
@@ -1262,12 +1357,24 @@ async function showProfileEditor(interaction) {
         );
         await i.showModal(modal);
       } else if (i.customId === "edit-done") {
-        await i.update({ content: "Profile saved!", components: [] });
+        await i.deferUpdate();
         collector.stop();
       }
     } catch (e) {
       console.error(e);
     }
+  });
+
+  // Restores the profile view once editing finishes, whether it ended via the
+  // Done button or the 2 minute timeout.
+  collector.on("end", async () => {
+    profileEditorSessions.delete(editorToken);
+    try {
+      await interaction.editReply({
+        content: "",
+        components: [profileEditButtonRow()],
+      });
+    } catch {}
   });
 }
 
@@ -4443,7 +4550,20 @@ module.exports = {
           return;
         }
 
-        const setOptions = ownedSetIds.map((sid) => ({
+        // A set only belongs in the picker if it holds a pack the pack-type
+        // menu can actually offer. Legacy packs are deliberately left out of
+        // that menu (they have their own button), so offering a set whose only
+        // pack is a legacy one would build a select menu with zero options,
+        // which Discord rejects.
+        const canOpenFrom = (sid) =>
+          Object.keys(userData.packs[sid] || {}).some((pt) => {
+            if (packsConfig[pt]?.legacy) return false;
+            const restriction = packsConfig[pt]?.set_restriction;
+            return !restriction || restriction.includes(sid);
+          });
+        const openableSetIds = ownedSetIds.filter(canOpenFrom);
+
+        const setOptions = openableSetIds.map((sid) => ({
           label: setsConfig[sid]?.name || sid,
           value: sid,
           emoji: setsConfig[sid]?.emoji || "📦",
@@ -4457,29 +4577,33 @@ module.exports = {
         const setIdPicker = `pickset-${interaction.id}`;
         const quickOpenId = `quickopen-${interaction.id}`;
         const cancelId = `cancel-${interaction.id}`;
-        const components = [
-          new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-              .setCustomId(setIdPicker)
-              .setPlaceholder("Choose a set")
-              .addOptions(setOptions),
-          ),
-        ];
+        const components = [];
+        // A select menu needs at least one option, so only add the row when
+        // there is somewhere to open from.
+        if (setOptions.length) {
+          components.push(
+            new ActionRowBuilder().addComponents(
+              new StringSelectMenuBuilder()
+                .setCustomId(setIdPicker)
+                .setPlaceholder("Choose a set")
+                .addOptions(setOptions),
+            ),
+          );
+        }
 
         const latestSet = ownedSetIds[0];
         const hasStandardPack =
           userData.packs[latestSet]?.["standard_pack"] > 0;
-        const stdPackCount = userData.packs[latestSet]?.["standard_pack"] || 0;
-        let bulkSet = null;
-        let bulkSetName = null;
-        for (const sid of ownedSetIds) {
-          const count = userData.packs[sid]?.["standard_pack"] || 0;
-          if (count >= 10) {
-            bulkSet = sid;
-            bulkSetName = setsConfig[sid]?.name || sid;
-            break;
+        const findBulkSet = (needed) => {
+          for (const sid of ownedSetIds) {
+            if ((userData.packs[sid]?.["standard_pack"] || 0) >= needed) {
+              return { setId: sid, name: setsConfig[sid]?.name || sid };
+            }
           }
-        }
+          return null;
+        };
+        const bulkSet5 = findBulkSet(5);
+        const bulkSet10 = findBulkSet(10);
         // Find legacy pack across all sets
         let legacyPackSet = null;
         let legacyPackCount = 0;
@@ -4491,29 +4615,36 @@ module.exports = {
             }
           }
         }
-        if (hasStandardPack) {
-          const setName = setsConfig[latestSet]?.name || latestSet;
-          const componentsArr = [
-            new ActionRowBuilder().addComponents(
+        if (hasStandardPack || bulkSet5) {
+          const quickRow = [];
+          if (hasStandardPack) {
+            const setName = setsConfig[latestSet]?.name || latestSet;
+            quickRow.push(
               new ButtonBuilder()
                 .setCustomId(quickOpenId)
                 .setLabel(
                   `${packsConfig["standard_pack"]?.emoji || "🎒"} Open Standard Pack (${setName})`,
                 )
                 .setStyle(ButtonStyle.Success),
-            ),
-          ];
-          if (bulkSet) {
-            componentsArr.push(
-              new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                  .setCustomId(`open10-${interaction.id}`)
-                  .setLabel(`🎒 Open 10 Standard Packs (${bulkSetName})`)
-                  .setStyle(ButtonStyle.Danger),
-              ),
             );
           }
-          components.push(...componentsArr);
+          if (bulkSet5) {
+            quickRow.push(
+              new ButtonBuilder()
+                .setCustomId(`open5-${interaction.id}`)
+                .setLabel(`🎒 Open 5 Standard Packs (${bulkSet5.name})`)
+                .setStyle(ButtonStyle.Danger),
+            );
+          }
+          if (bulkSet10) {
+            quickRow.push(
+              new ButtonBuilder()
+                .setCustomId(`open10-${interaction.id}`)
+                .setLabel(`🎒 Open 10 Standard Packs (${bulkSet10.name})`)
+                .setStyle(ButtonStyle.Danger),
+            );
+          }
+          components.push(new ActionRowBuilder().addComponents(quickRow));
         }
         if (legacyPackSet) {
           components.push(
@@ -4535,6 +4666,7 @@ module.exports = {
           ),
         );
 
+        const open5Id = `open5-${interaction.id}`;
         const open10Id = `open10-${interaction.id}`;
         const setMsg = await interaction.editReply({
           embeds: [setEmbed],
@@ -4550,6 +4682,7 @@ module.exports = {
               i.user.id === interaction.user.id &&
               (i.customId === setIdPicker ||
                 i.customId === quickOpenId ||
+                i.customId === open5Id ||
                 i.customId === open10Id ||
                 i.customId === legacyOpenId ||
                 i.customId === cancelId),
@@ -4563,8 +4696,13 @@ module.exports = {
             });
             return;
           }
-          if (setSelection.customId === open10Id) {
-            targetSetId = bulkSet;
+          if (setSelection.customId === open5Id) {
+            targetSetId = bulkSet5.setId;
+            targetPackType = "standard_pack";
+            bulkOpenCount = 5;
+            await setSelection.deferUpdate();
+          } else if (setSelection.customId === open10Id) {
+            targetSetId = bulkSet10.setId;
             targetPackType = "standard_pack";
             bulkOpenCount = 10;
             await setSelection.deferUpdate();
@@ -4614,6 +4752,21 @@ module.exports = {
               value: pt,
               emoji: packsConfig[pt]?.emoji || "🃏",
             }));
+
+          // Nothing survived the filter above, so a select menu would be built
+          // with zero options and Discord would reject the whole response.
+          if (!packOptions.length) {
+            const onlyLegacy = ownedTypes.every(
+              (pt) => packsConfig[pt]?.legacy,
+            );
+            await interaction.editReply({
+              content: onlyLegacy
+                ? `⏳ The only packs you have for **${getSetName(targetSetId, setObj)}** are legacy packs. Use the **Open Legacy Pack** button instead.`
+                : `You don't have any packs that can be opened from **${getSetName(targetSetId, setObj)}**.`,
+              components: [],
+            });
+            return;
+          }
 
           const packEmbed = new EmbedBuilder()
             .setColor(0x2b2d31)
@@ -4800,14 +4953,10 @@ module.exports = {
           }
         } catch {}
         if (target.id === interaction.user.id) {
-          const editRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId("edit-profile-btn")
-              .setLabel("Edit Profile")
-              .setStyle(ButtonStyle.Secondary),
-          );
+          const editRow = profileEditButtonRow();
           await interaction.editReply({ components: [editRow] });
 
+          let editorOpen = false;
           const editCollector = profileMsg.createMessageComponentCollector({
             filter: (i) =>
               i.customId === "edit-profile-btn" &&
@@ -4817,6 +4966,7 @@ module.exports = {
 
           editCollector.on("collect", async (btnInt) => {
             try {
+              editorOpen = true;
               await btnInt.deferUpdate();
               await showProfileEditor(interaction);
             } catch (e) {
@@ -4825,6 +4975,8 @@ module.exports = {
           });
 
           editCollector.on("end", async () => {
+            // Never strip the components while the editor is still showing.
+            if (editorOpen) return;
             try {
               await interaction.editReply({ components: [] });
             } catch {}
@@ -5231,7 +5383,8 @@ module.exports = {
       interaction.isModalSubmit() &&
       interaction.customId.startsWith("edit-profile-modal-")
     ) {
-      const msgId = interaction.customId.slice("edit-profile-modal-".length);
+      const token = interaction.customId.slice("edit-profile-modal-".length);
+      const session = profileEditorSessions.get(token);
       const user = loadUser(interaction.user.id);
       const bio = interaction.fields.getTextInputValue("bio");
       const accent_color =
@@ -5246,16 +5399,20 @@ module.exports = {
         flags: 64,
       });
       try {
-        const target = interaction.user;
-        const { embed, files } = await buildProfileEmbed(target, user);
-        const profileChannel = interaction.channel;
-        if (profileChannel) {
-          const profileMsg = await profileChannel.messages
-            .fetch(msgId)
-            .catch(() => null);
-          if (profileMsg) {
-            await profileMsg.edit({ embeds: [embed], files });
-          }
+        // The original reply cannot be fetched by ID when it is ephemeral, so
+        // reuse the stored interaction to edit it through the webhook.
+        if (session) {
+          // Close the editor first: its "end" handler drops the edit hint and
+          // puts the Edit Profile button back, so it does not linger.
+          session.collector?.stop();
+          const { embed, files } = await buildProfileEmbed(
+            interaction.user,
+            user,
+          );
+          // Embeds/files only, so the hint and components the end handler just
+          // set are left alone.
+          await session.interaction.editReply({ embeds: [embed], files });
+          profileEditorSessions.delete(token);
         }
       } catch (e) {
         console.error("Profile edit error:", e);

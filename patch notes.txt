@@ -1,3 +1,14 @@
-K-9 Version 11.9 notes
+K-9 Version 12 notes
 ---------------------
-Removed AI responses
+New Features:
+- SPOOKY SEASON 3 UPDATE!!
+- New pack type and card rarities
+- Multi-open for 5x packs
+- Recap DMs at the end of seasons!
+
+Updates:
+- Roulette now shows who delivered the final shot
+- Roulette scores will now be reset every so often
+- "I hardly know 'er!" response is now a 1/10 chance
+- Loads more K-9 responses added
+- Titles now have multiple pages in /cards profile
