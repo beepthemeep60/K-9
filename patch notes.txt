@@ -7,6 +7,7 @@ New Features:
 - Recap DMs at the end of seasons!
 
 Updates:
+- Pressing open on a pack now changes the button so you can't accidentally skip through by pressing it twice
 - Roulette now shows who delivered the final shot
 - Roulette scores will now be reset every so often
 - "I hardly know 'er!" response is now a 1/10 chance

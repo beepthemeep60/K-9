@@ -547,7 +547,13 @@ async function buildCardMessage(card, set, setId, user, pullIndex) {
   return { embeds: [embed], files, attachments: [] };
 }
 
-function buildNavigationRow(currentIndex, total, ids, opened = true) {
+function buildNavigationRow(
+  currentIndex,
+  total,
+  ids,
+  opened = true,
+  busy = false,
+) {
   const isLastCard = currentIndex === total - 1;
   const isFirstCard = currentIndex === 0;
 
@@ -556,20 +562,31 @@ function buildNavigationRow(currentIndex, total, ids, opened = true) {
       .setCustomId(ids.left)
       .setLabel("←")
       .setStyle(
-        opened && !isFirstCard ? ButtonStyle.Success : ButtonStyle.Secondary,
+        opened && !busy && !isFirstCard
+          ? ButtonStyle.Success
+          : ButtonStyle.Secondary,
       )
-      .setDisabled(!opened || isFirstCard),
+      .setDisabled(busy || !opened || isFirstCard),
     new ButtonBuilder()
       .setCustomId(ids.finished)
-      .setLabel(opened ? "Finished" : "Open")
-      .setStyle(opened ? ButtonStyle.Success : ButtonStyle.Primary),
+      .setLabel(busy ? "Opening..." : opened ? "Finished" : "Open")
+      .setStyle(
+        busy
+          ? ButtonStyle.Secondary
+          : opened
+            ? ButtonStyle.Success
+            : ButtonStyle.Primary,
+      )
+      .setDisabled(busy),
     new ButtonBuilder()
       .setCustomId(ids.right)
       .setLabel("→")
       .setStyle(
-        opened && !isLastCard ? ButtonStyle.Success : ButtonStyle.Secondary,
+        opened && !busy && !isLastCard
+          ? ButtonStyle.Success
+          : ButtonStyle.Secondary,
       )
-      .setDisabled(!opened || isLastCard),
+      .setDisabled(busy || !opened || isLastCard),
   );
 }
 
@@ -1585,6 +1602,9 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
   let currentIndex = 0;
   let opened = false;
   let currentContent = null;
+  // Set while the first card is being rendered, so a second click on the still
+  // visible "Open" button cannot jump straight to the "Finished" branch.
+  let revealing = false;
 
   const firstEmbed = new EmbedBuilder()
     .setColor(isGodPack ? 0xff0000 : 0x2b2d31)
@@ -1637,10 +1657,27 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
         return;
       }
 
-      await buttonInteraction.deferUpdate();
+      // Ignore (but acknowledge) clicks that land while the first card is
+      // still being rendered.
+      if (revealing) {
+        await buttonInteraction
+          .reply({ content: "⏳ Opening your pack...", flags: 64 })
+          .catch(() => {});
+        return;
+      }
 
       if (buttonInteraction.customId === ids.finished && !opened) {
+        revealing = true;
         opened = true;
+
+        // Disable and relabel the button *before* the slow reveal work, so the
+        // same "Open" click cannot be sent twice while the card renders.
+        // update() only touches components, so the cover image and embeds stay.
+        await buttonInteraction
+          .update({
+            components: [buildNavigationRow(0, cards.length, ids, false, true)],
+          })
+          .catch(() => {});
 
         await yieldLoop();
         const cardMessage = await buildCardMessage(
@@ -1655,8 +1692,11 @@ async function openPackAndShow(interaction, { setId, packType, set, pack }) {
           ...cardMessage,
           components: [buildNavigationRow(0, cards.length, ids, true)],
         });
+        revealing = false;
         return;
       }
+
+      await buttonInteraction.deferUpdate();
 
       if (!opened) return;
 
@@ -2463,8 +2503,8 @@ async function inspectCard(interaction) {
                     resolveSet(favCards[currentFavIdx].setId),
                     favCards[currentFavIdx].setId,
                     user,
-                    `insp-${cid2}-${ed2}`,
-                  )),
+                `insp-${cid2}-${ed2}`,
+              )),
                   components: [
                     buildRaritySelect(
                       card2,
@@ -2517,8 +2557,8 @@ async function inspectCard(interaction) {
                     resolveSet(favCards[currentFavIdx].setId),
                     favCards[currentFavIdx].setId,
                     user,
-                    `insp-${cid3}-${ed3}`,
-                  )),
+                `insp-${cid3}-${ed3}`,
+              )),
                   components: [
                     buildRaritySelect(
                       card3,
@@ -2570,8 +2610,8 @@ async function inspectCard(interaction) {
                     resolveSet(favCards[currentFavIdx].setId),
                     favCards[currentFavIdx].setId,
                     user,
-                    `insp-${cid4}-${ed4}`,
-                  )),
+                `insp-${cid4}-${ed4}`,
+              )),
                   components: [
                     buildRaritySelect(
                       card4,

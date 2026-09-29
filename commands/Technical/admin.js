@@ -21,6 +21,7 @@ const {
   getSetName,
   titleCase,
   getPackName,
+  getCardAllowedEditions,
 } = require("../Games/tradingCards.js");
 
 const setsConfig = require("../../tradingCards/data/config/sets.json");
@@ -829,7 +830,53 @@ module.exports = {
       }
       const userIds = targetUser ? [targetUser.id] : [...ids];
 
-      const results = { sent: 0, skipped: 0, failed: [] };
+      // A mass recap DMs every user on file, so confirm before sending. A
+      // single-user recap is deliberate and only needs the one click.
+      if (!targetUser) {
+        const confirmId = `recap-confirm-${interaction.id}`;
+        const cancelId = `recap-cancel-${interaction.id}`;
+        const preview = await interaction.editReply({
+          content:
+            `Send the **${season.name || requestedSeason}** recap to **${userIds.length}** users?\n` +
+            `Set: **${setsConfig[setId].name}**. ${delaySeconds}s between DMs`,
+          components: [
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(confirmId)
+                .setLabel(`Send ${userIds.length} recaps`)
+                .setStyle(ButtonStyle.Danger),
+              new ButtonBuilder()
+                .setCustomId(cancelId)
+                .setLabel("Cancel")
+                .setStyle(ButtonStyle.Secondary),
+            ),
+          ],
+        });
+        try {
+          const choice = await preview.awaitMessageComponent({
+            filter: (i) => i.user.id === interaction.user.id,
+            time: 60000,
+          });
+          if (choice.customId === cancelId) {
+            await choice.update({
+              content: "Recap cancelled — no DMs were sent.",
+              components: [],
+            });
+            return;
+          }
+          await choice.deferUpdate();
+        } catch {
+          await interaction
+            .editReply({
+              content: "Recap timed out — no DMs were sent.",
+              components: [],
+            })
+            .catch(() => {});
+          return;
+        }
+      }
+
+      const results = { sent: 0, skipped: 0, failed: [], fallbackSent: 0 };
       const total = userIds.length;
 
       for (let i = 0; i < userIds.length; i++) {
@@ -837,6 +884,7 @@ module.exports = {
         const progress = `[${i + 1}/${total}]`;
 
         // Never let one bad record abort a 60 user run.
+        let fallbackPayload = null;
         try {
           const bpUser = loadBpUser(userId);
           const seasonData = bpUser?.seasons?.[requestedSeason];
@@ -892,16 +940,28 @@ module.exports = {
           }
 
           const dmUser = await interaction.client.users.fetch(userId);
+          fallbackPayload = { embeds: [embed], files };
           await dmUser.send({ embeds: [embed], files });
           results.sent++;
         } catch (err) {
           // 50007 = DMs closed, 10013 = cannot DM this user, anything else is
           // a data or network problem worth reporting.
-          results.failed.push({
-            userId,
-            reason:
-              err?.code === 50007 ? "DMs closed" : err?.message || "error",
-          });
+          const reason =
+            err?.code === 50007 ? "DMs closed" : err?.message || "error";
+          results.failed.push({ userId, reason });
+
+          // A one-off recap has nowhere else to go, so post it in the channel
+          // rather than losing it entirely when the DM bounces.
+          if (targetUser && fallbackPayload) {
+            try {
+              await interaction.followUp({
+                content: `Couldn't DM <@${userId}> (${reason}) — posting the recap here instead.`,
+                ...fallbackPayload,
+                flags: 64,
+              });
+              results.fallbackSent++;
+            } catch {}
+          }
         }
 
         if (i < userIds.length - 1) await sleep(delaySeconds * 1000);
@@ -919,6 +979,13 @@ module.exports = {
         `Recap run finished for **${season.name || requestedSeason}** (set ${setId} — ${setsConfig[setId].name}).`,
         `Sent: **${results.sent}** · no season data: **${results.skipped}** · failed: **${results.failed.length}**`,
       ];
+      if (results.fallbackSent) {
+        lines.push(
+          `Posted **${results.fallbackSent}** recap${
+            results.fallbackSent === 1 ? "" : "s"
+          } in this channel because the DM failed.`,
+        );
+      }
       if (results.failed.length) {
         lines.push(
           `Could not DM: ${results.failed
@@ -946,10 +1013,41 @@ module.exports = {
       });
       const cardId = interaction.options.getString("card");
 
+      // Resolve the card before scanning users: the completion star depends on
+      // which editions that card is actually allowed to have.
+      let cardName = cardId;
+      let cardObj = null;
+      if (cardId) {
+        const setDir = path.join(__dirname, "../../tradingCards/data/sets");
+        for (const sf of fs
+          .readdirSync(setDir)
+          .filter((f) => f.endsWith(".json"))) {
+          try {
+            const setData = JSON.parse(
+              fs.readFileSync(path.join(setDir, sf), "utf8"),
+            );
+            if (setData.cards?.[cardId]) {
+              cardName = setData.cards[cardId].name;
+              cardObj = setData.cards[cardId];
+              break;
+            }
+          } catch {}
+        }
+      }
+
       const counts = {};
       for (const ed of allEditionKeys) counts[ed] = 0;
       let totalCards = 0;
       let totalUsers = 0;
+      const byCopies = [];
+      const byRainbow = [];
+      const byStar = [];
+      // Same rule as the star badge drawn on the card image.
+      const starEditions = cardObj
+        ? getCardAllowedEditions(cardObj).filter(
+            (ed) => ed !== "timey_wimey",
+          )
+        : [];
 
       if (fs.existsSync(usersPath)) {
         const files = fs
@@ -960,6 +1058,7 @@ module.exports = {
             const data = JSON.parse(
               fs.readFileSync(path.join(usersPath, file), "utf8"),
             );
+            const userId = file.replace(/\.json$/, "");
             const collections = cardId
               ? { [cardId]: data.collection?.[cardId] || {} }
               : data.collection || {};
@@ -972,30 +1071,48 @@ module.exports = {
               }
             }
             if (hasCards) totalUsers++;
+
+            if (cardId) {
+              const owned = data.collection?.[cardId] || {};
+              let copies = 0;
+              for (const count of Object.values(owned)) {
+                if (typeof count === "number" && count > 0) copies += count;
+              }
+              if (copies > 0) {
+                byCopies.push({ userId, copies });
+                if ((owned.rainbow || 0) > 0) {
+                  byRainbow.push({ userId, copies: owned.rainbow });
+                }
+                if (
+                  starEditions.length &&
+                  starEditions.every((ed) => (owned[ed] || 0) > 0)
+                ) {
+                  byStar.push({ userId, copies });
+                }
+              }
+            }
           } catch {}
         }
       }
 
+      // Highest first, with a stable id tie-break so equal counts keep the
+      // same order between runs.
+      const rank = (a, b) =>
+        b.copies - a.copies || a.userId.localeCompare(b.userId);
+      byCopies.sort(rank);
+      byRainbow.sort(rank);
+      byStar.sort(rank);
+
+      const topLine = (entries, suffix) =>
+        entries.length
+          ? entries
+              .slice(0, 3)
+              .map((e) => `<@${e.userId}> (${e.copies}${suffix})`)
+              .join("\n")
+          : "_Nobody yet_";
+
       let embed;
       if (cardId) {
-        const setFiles = fs
-          .readdirSync(path.join(__dirname, "../../tradingCards/data/sets"))
-          .filter((f) => f.endsWith(".json"));
-        let cardName = cardId;
-        for (const sf of setFiles) {
-          try {
-            const setData = JSON.parse(
-              fs.readFileSync(
-                path.join(__dirname, "../../tradingCards/data/sets", sf),
-                "utf8",
-              ),
-            );
-            if (setData.cards?.[cardId]) {
-              cardName = setData.cards[cardId].name;
-              break;
-            }
-          } catch {}
-        }
         embed = new EmbedBuilder()
           .setColor(0x2b2d31)
           .setTitle(`📊 Card Circulation — ${cardId}`)
@@ -1013,6 +1130,21 @@ module.exports = {
                 value: `**${counts[ed].toLocaleString()}** copies`,
                 inline: true,
               })),
+            {
+              name: "🏆 Most copies",
+              value: topLine(byCopies, ""),
+              inline: true,
+            },
+            {
+              name: "🌈 Top rainbow owners",
+              value: topLine(byRainbow, "🌈"),
+              inline: true,
+            },
+            {
+              name: "⭐ Completion stars",
+              value: topLine(byStar, ""),
+              inline: true,
+            },
           );
       } else {
         embed = new EmbedBuilder()
@@ -2002,7 +2134,7 @@ module.exports = {
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
       ctx.fillText(
-        `${setsConfig[setId]?.emoji || ""} ${setName} - ${cardIds.length} cards`.trim(),
+        `${setName} - ${cardIds.length} cards`.trim(),
         PAD,
         HEADER / 2,
       );
