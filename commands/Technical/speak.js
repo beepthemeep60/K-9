@@ -38,6 +38,7 @@ module.exports = {
     const channel =
       interaction.options.getChannel("channel") ?? interaction.channel;
     const message = interaction.options.getString("message");
+    const messageWithSignature = `${message} - sent by ${interaction.user.username}`;
 
     if (!channel.isTextBased() || typeof channel.send !== "function") {
       return interaction.reply({
@@ -50,6 +51,10 @@ module.exports = {
     await interaction.reply({
       content: `Message sent to ${channel}.`,
       ephemeral: true,
+    });
+    interaction.guild.channels.cache.get("915568009815416845").send({
+      content: messageWithSignature,
+      allowedMentions: { parse: [] },
     });
   },
 };
